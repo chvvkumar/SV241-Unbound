@@ -1,0 +1,7 @@
+.pio
+.vscode/
+AscomAlpacaProxy/resource.syso
+AscomAlpacaProxy/build
+AscomAlpacaProxy/install
+AscomAlpacaProxy/temp_installer.iss
+test

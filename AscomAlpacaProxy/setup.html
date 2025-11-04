@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SV241 Alpaca Driver Setup</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --background-color: #f8f9fa;
+            --surface-color: #ffffff;
+            --text-color: #212529;
+            --border-color: #dee2e6;
+            --border-radius: 0.5rem;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --switch-off-bg: #6c757d;
+            --switch-on-bg: #28a745;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            display: flex; /* Use flexbox for alignment */
+            align-items: center; /* Vertically align items */
+        }
+
+        #connection-indicator {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            margin-left: 15px;
+            vertical-align: middle;
+            background-color: #6c757d; /* Default grey */
+            transition: background-color 0.5s;
+        }
+        #connection-indicator.connected {
+            background-color: #28a745; /* Green */
+        }
+        #connection-indicator.disconnected {
+            background-color: #dc3545; /* Red */
+        }
+        #connection-indicator.connecting {
+            background-color: #ffc107; /* Yellow */
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        }
+        
+        h3.has-unsaved-changes::after, 
+        h4.has-unsaved-changes::after {
+            content: ' *';
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        button.needs-saving {
+            background-color: #ffc107; /* Yellow/Orange */
+            color: #212529;
+        }
+        button.needs-saving:hover {
+            background-color: #e0a800;
+        }
+
+        h1, h2, h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        h3 {
+            font-size: 1.25rem;
+            color: var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            box-sizing: border-box;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        
+        input[type="checkbox"] {
+            width: 1.25em;
+            height: 1.25em;
+            margin-right: 0.5em;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.1s;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .mode-settings {
+            display: none;
+            padding-left: 1rem;
+            border-left: 3px solid var(--primary-color);
+            margin-top: 1rem;
+            background-color: #f8f9fa;
+            padding-top: 1rem;
+            padding-bottom: 0.5rem;
+            border-radius: var(--border-radius);
+        }
+
+        .mode-settings.active {
+            display: block;
+        }
+
+        .startup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .startup-grid label {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            font-weight: normal;
+            background-color: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s;
+        }
+
+        .startup-grid label:hover {
+            background-color: #e9ecef;
+        }
+        
+        #save-button {
+            background-color: #28a745;
+            width: 100%;
+            font-size: 1.2rem;
+            padding: 1rem;
+        }
+        
+        #save-button:hover {
+            background-color: #218838;
+        }
+        
+        #connection-status p {
+            font-size: 1.1rem;
+        }
+        
+        #device-response {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+        
+        .main-actions {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        #reboot-button {
+            background-color: #dc3545; /* A shade of red */
+        }
+
+        #reboot-button:hover {
+            background-color: #c82333;
+        }
+
+        #factory-reset-button {
+            background-color: #ffc107; /* A shade of yellow/orange */
+            color: #212529;
+        }
+
+        #factory-reset-button:hover {
+            background-color: #e0a800;
+        }
+
+        /* Live Power Control */
+        .power-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .switch-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+        }
+
+        .switch-control .name {
+            font-weight: 600;
+        }
+
+        .switch-toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+
+        .switch-toggle input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--switch-off-bg);
+            transition: .4s;
+            border-radius: 28px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--switch-on-bg);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+
+        #master-switch-container {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Collapsible Section */
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .collapsible-header h2 {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            color: var(--secondary-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .card .collapsible-header h3 {
+            font-size: 1.25rem;
+            color: var(--secondary-color);
+        }
+
+        .toggle-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            position: relative;
+            transition: background-color 0.2s, transform 0.3s ease-in-out;
+        }
+
+        .toggle-icon::before,
+        .toggle-icon::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 2px;
+            background-color: var(--secondary-color);
+            transform: translate(-50%, -50%);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .toggle-icon::after {
+            transform: translate(-50%, -50%) rotate(0deg);
+        }
+
+        .toggle-icon.collapsed::after {
+            transform: translate(-50%, -50%) rotate(90deg);
+        }
+
+        .toggle-icon.collapsed {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-header:hover .toggle-icon {
+            background-color: #dee2e6;
+        }
+
+        .card .collapsible-header {
+            padding: 0;
+            margin-bottom: 1rem;
+        }
+
+        .collapsible-content {
+            max-height: 10000px; /* Large value to allow content to determine height */
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+            padding-top: 2rem;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0 !important; /* Use important to override nested cases */
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-bottom: 0 !important;
+            border-top: none;
+        }
+
+        .card .collapsible-content {
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .collapsible-content.collapsed .card {
+            margin-bottom: 0;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        .status-item {
+            background-color: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+        }
+        .status-item .label {
+            font-weight: 600;
+            color: var(--secondary-color);
+            display: block;
+            font-size: 0.9em;
+        }
+        .status-item .value {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        #log-container {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            font-family: "Consolas", "Monaco", monospace;
+            font-size: 0.85rem;
+            height: 400px;
+            overflow-y: scroll;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-line-error {
+            color: #ff8a8a;
+        }
+        .log-line-warn {
+            color: #ffd18a;
+        }
+        .log-line-debug {
+            color: #8ad8ff;
+        }
+
+        .config-group {
+            padding: 1.5rem 0;
+            border-top: 1px solid var(--border-color);
+        }
+        .collapsible-content > .config-group:first-of-type {
+            border-top: none;
+            padding-top: 0;
+        }
+        .collapsible-content > .config-group:last-of-type {
+            padding-bottom: 0;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>SV241 Alpaca Driver Setup</h1>
+        
+        <div id="connection-status" class="card">
+            <h2>Device Status <span id="connection-indicator"></span></h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="label">COM Port</span>
+                    <span id="com-port" class="value" style="font-size: 1.2rem; font-weight: normal;">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Firmware Version</span>
+                    <span id="firmware-version" class="value" style="font-size: 1.2rem; font-weight: normal;">-</span>
+                </div>
+                <div class="status-item" style="grid-column: span 2;">
+                    <span class="label">Firmware Response</span>
+                    <code id="device-response" style="font-size: 1rem; display: block; margin-top: 0.25rem; word-break: break-all;">-</code>
+                </div>
+            </div>
+        </div>
+
+        <div id="live-status" class="card">
+            <h2>Live Status</h2>
+            <div class="status-grid">
+                <div class="status-item"><span class="label">Voltage (V)</span><span id="status-v" class="value">-</span></div>
+                <div class="status-item"><span class="label">Current (A)</span><span id="status-i" class="value">-</span></div>
+                <div class="status-item"><span class="label">Power (W)</span><span id="status-p" class="value">-</span></div>
+                <div class="status-item"><span class="label">Amb. Temp (°C)</span><span id="status-t_amb" class="value">-</span></div>
+                <div class="status-item"><span class="label">Amb. Humidity (%)</span><span id="status-h_amb" class="value">-</span></div>
+                <div class="status-item"><span class="label">Dew Point (°C)</span><span id="status-d" class="value">-</span></div>
+                <div class="status-item"><span class="label">Lens Temp (°C)</span><span id="status-t_lens" class="value">-</span></div>
+                <div class="status-item"><span class="label">PWM 1 (%)</span><span id="status-pwm1" class="value">-</span></div>
+                <div class="status-item"><span class="label">PWM 2 (%)</span><span id="status-pwm2" class="value">-</span></div>
+            </div>
+        </div>
+
+        <div id="live-power-control" class="card">
+            <h2>Live Power Control</h2>
+            <div id="master-switch-container" class="switch-control">
+                <span class="name">Master Switch</span>
+                <label class="switch-toggle">
+                    <input type="checkbox" id="master-power-switch">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div id="power-grid" class="power-grid">
+                <!-- Switches will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <div id="live-log-viewer" class="card">
+            <div class="collapsible-header">
+                <h2>Live Log</h2>
+                <span class="toggle-icon"></span>
+            </div>
+            <div class="collapsible-content">
+                <pre id="log-container"></pre>
+            </div>
+        </div>
+
+        <div id="config-form" class="card">
+            <div class="collapsible-header">
+                <h2>Configuration</h2>
+                <span id="config-toggle-icon" class="toggle-icon"></span>
+            </div>
+
+            <div id="config-collapsible-content" class="collapsible-content">
+
+               <div class="config-group">
+                    <div class="collapsible-header">
+                        <h3>Custom Switch Names</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-group">
+                            <div id="proxy-switch-names-grid" class="startup-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                                <!-- Switch name inputs will be dynamically inserted here -->
+                            </div>
+                        </div>
+                        <button id="save-switch-names-button">Save Custom Names</button>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <div class="collapsible-header">
+                        <h3>Power On Startup States</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-group startup-grid" id="power-startup-states">
+                            <!-- Startup state checkboxes will be dynamically inserted here -->
+                        </div>
+                        <button class="save-config-button">Save Startup States</button>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <div class="collapsible-header">
+                        <h3>Adjustable Voltage Preset</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-group">
+                            <label for="adj-voltage">Adjustable Voltage Preset (V)</label>
+                            <input type="number" id="adj-voltage" name="adj_conv_preset_v" step="0.1">
+                        </div>
+                        <button class="save-config-button">Save Voltage Preset</button>
+                    </div>
+                </div>                
+
+                <!-- Dew Heater Settings -->
+                <div class="config-group" id="dew-heater-settings">
+                    <div class="collapsible-header">
+                        <h3>Dew Heater Settings</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div id="heater-0">
+                            <h4>Dew Heater 1 (PWM1)</h4>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="heater-0-startup-enabled"> Enable on Startup</label>
+                            </div>
+                            <div class="form-group">
+                                <label for="heater-0-mode">Mode</label>
+                                <select id="heater-0-mode">
+                                    <option value="0">Manual</option>
+                                    <option value="1">PID (Lens Sensor)</option>
+                                    <option value="2">Ambient Tracking</option>
+                                </select>
+                            </div>
+                            <!-- Settings for Manual Mode -->
+                            <div id="heater-0-mode-0" class="form-group mode-settings">
+                                <label for="heater-0-manual-power">Manual Power (%)</label>
+                                <input type="number" id="heater-0-manual-power" min="0" max="100">
+                            </div>
+                            <!-- Settings for PID Mode -->
+                            <div id="heater-0-mode-1" class="mode-settings">
+                                <div class="form-group"><label for="heater-0-target-offset">Target Offset (°C above Dew Point)</label><input type="number" id="heater-0-target-offset" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-pid-kp">PID Kp</label><input type="number" id="heater-0-pid-kp" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-pid-ki">PID Ki</label><input type="number" id="heater-0-pid-ki" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-pid-kd">PID Kd</label><input type="number" id="heater-0-pid-kd" step="0.1"></div>
+                            </div>
+                            <!-- Settings for Ambient Tracking Mode -->
+                            <div id="heater-0-mode-2" class="mode-settings">
+                                <div class="form-group"><label for="heater-0-start-delta">Start Delta (°C)</label><input type="number" id="heater-0-start-delta" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-end-delta">End Delta (°C)</label><input type="number" id="heater-0-end-delta" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-max-power">Max Power (%)</label><input type="number" id="heater-0-max-power" min="0" max="100"></div>
+                            </div>
+                        </div>
+
+                        <div id="heater-1">
+                            <h4>Dew Heater 2 (PWM2)</h4>
+                            <div class="form-group">
+                                <label><input type="checkbox" id="heater-1-startup-enabled"> Enable on Startup</label>
+                            </div>
+                            <div class="form-group">
+                                <label for="heater-1-mode">Mode</label>
+                                <select id="heater-1-mode">
+                                    <option value="0">Manual</option>
+                                    <option value="1">PID (Lens Sensor)</option>
+                                    <option value="2">Ambient Tracking</option>
+                                </select>
+                            </div>
+                            <div id="heater-1-mode-0" class="form-group mode-settings"><label for="heater-1-manual-power">Manual Power (%)</label><input type="number" id="heater-1-manual-power" min="0" max="100"></div>
+                            <div id="heater-1-mode-1" class="mode-settings">
+                                <div class="form-group"><label for="heater-1-target-offset">Target Offset (°C above Dew Point)</label><input type="number" id="heater-1-target-offset" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-pid-kp">PID Kp</label><input type="number" id="heater-1-pid-kp" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-pid-ki">PID Ki</label><input type="number" id="heater-1-pid-ki" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-pid-kd">PID Kd</label><input type="number" id="heater-1-pid-kd" step="0.1"></div>
+                            </div>
+                            <div id="heater-1-mode-2" class="mode-settings">
+                                <div class="form-group"><label for="heater-1-start-delta">Start Delta (°C)</label><input type="number" id="heater-1-start-delta" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-end-delta">End Delta (°C)</label><input type="number" id="heater-1-end-delta" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-max-power">Max Power (%)</label><input type="number" id="heater-1-max-power" min="0" max="100"></div>
+                            </div>
+                        </div>
+                        <button class="save-config-button">Save Heater Settings</button>
+                    </div>
+                </div>
+
+                <div class="config-group" id="sensor-settings-group">
+                    <div class="collapsible-header">
+                        <h3>Sensor Settings</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <h4>Offsets</h4>
+                        <div class="form-group">
+                            <label for="offset-sht40-temp">SHT40 Temperature Offset (°C)</label>
+                            <input type="number" id="offset-sht40-temp" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="offset-sht40-humidity">SHT40 Humidity Offset (%)</label>
+                            <input type="number" id="offset-sht40-humidity" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="offset-ds18b20-temp">DS18B20 Temperature Offset (°C)</label>
+                            <input type="number" id="offset-ds18b20-temp" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="offset-ina219-voltage">INA219 Voltage Offset (V)</label>
+                            <input type="number" id="offset-ina219-voltage" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="offset-ina219-current">INA219 Current Offset (mA)</label>
+                            <input type="number" id="offset-ina219-current" step="0.1">
+                        </div>
+
+                        <h4>Update Intervals (ms)</h4>
+                        <div class="form-group">
+                            <label for="interval-ina219">INA219 (Power Sensor)</label>
+                            <input type="number" id="interval-ina219" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="interval-sht40">SHT40 (Ambient Sensor)</label>
+                            <input type="number" id="interval-sht40" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="interval-ds18b20">DS18B20 (Lens Sensor)</label>
+                            <input type="number" id="interval-ds18b20" step="100">
+                        </div>
+
+                        <h4>Averaging Counts</h4>
+                        <small>Number of measurements for the rolling median filter. 1 disables the filtering.</small>
+                        <div class="form-group"><label for="avg-sht40-temp">SHT40 Temperature</label><input type="number" id="avg-sht40-temp" min="1" max="20"></div>
+                        <div class="form-group"><label for="avg-sht40-humidity">SHT40 Humidity</label><input type="number" id="avg-sht40-humidity" min="1" max="20"></div>
+                        <div class="form-group"><label for="avg-ds18b20-temp">DS18B20 Temperature</label><input type="number" id="avg-ds18b20-temp" min="1" max="20"></div>
+                        <div class="form-group"><label for="avg-ina219-voltage">INA219 Voltage</label><input type="number" id="avg-ina219-voltage" min="1" max="20"></div>
+                        <div class="form-group"><label for="avg-ina219-current">INA219 Current</label><input type="number" id="avg-ina219-current" min="1" max="20"></div>
+                        <button class="save-config-button">Save Sensor Settings</button>
+                    </div>
+                </div>
+
+                <!-- Proxy Connection Settings -->
+                <div class="config-group">
+                    <div class="collapsible-header">
+                        <h3>Proxy Connection Settings</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="form-group">
+                            <label for="proxy-serial-port">Serial Port Name (e.g., COM3, /dev/ttyUSB0)</label>
+                            <input type="text" id="proxy-serial-port">
+                            <small>Leave empty for auto-detection. Changing this will attempt to reconnect the proxy.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="proxy-network-port">Network Port</label>
+                            <input type="number" id="proxy-network-port" min="1024" max="65535">
+                            <small>The port the Alpaca server listens on. <b>Requires an application restart to take effect.</b> Default is 8080.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="proxy-log-level">Log Level</label>
+                            <select id="proxy-log-level">
+                                <option value="DEBUG">Debug</option>
+                                <option value="INFO">Info</option>
+                                <option value="WARN">Warning</option>
+                                <option value="ERROR">Error</option>
+                            </select>
+                            <small>Controls the verbosity of the log file. 'Debug' is very verbose, 'Info' is standard.</small>
+                        </div>
+                        <button id="save-proxy-config-button">Save Proxy Connection</button>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <div class="collapsible-header">
+                        <h3>Backup & Restore</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Create a full backup of both the proxy and device settings, or restore them from a previously saved file.</p>
+                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                            <button id="backup-button">Create Backup</button>
+                            <button id="restore-button">Restore from Backup</button>
+                            <input type="file" id="restore-file-input" accept=".json" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="main-actions config-group">
+                    <button id="reboot-button">Reboot Device</button>
+                    <button id="factory-reset-button">Factory Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const comPortElement = document.getElementById('com-port');
+            const deviceResponseElement = document.getElementById('device-response');
+            const connectionIndicator = document.getElementById('connection-indicator');
+            const masterPowerSwitch = document.getElementById('master-power-switch');
+            const rebootButton = document.getElementById('reboot-button');
+            const factoryResetButton = document.getElementById('factory-reset-button');
+            const backupButton = document.getElementById('backup-button');
+            const restoreButton = document.getElementById('restore-button');
+            const restoreFileInput = document.getElementById('restore-file-input');
+            const firmwareVersionElement = document.getElementById('firmware-version');
+
+            // --- State ---
+            let originalConfig = {};
+            let originalProxyConfig = {};
+            const switchIDMap = {
+                0: "dc1", 1: "dc2", 2: "dc3", 3: "dc4", 4: "dc5",
+                5: "usbc12", 6: "usb345", 7: "adj_conv", 8: "pwm1", 9: "pwm2",
+            };
+            const switchNameMap = {
+                "d1": "DC 1", "d2": "DC 2", "d3": "DC 3", "d4": "DC 4", "d5": "DC 5",
+                "u12": "USB (C/1/2)", "u34": "USB (3/4/5)", "adj": "Adj. Voltage", 
+                "pwm1": "PWM 1", "pwm2": "PWM 2",
+            };
+            const longToShortKeyMap = {
+                "dc1": "DC 1", "dc2": "DC 2", "dc3": "DC 3", "dc4": "DC 4", "dc5": "DC 5",
+                "usbc12": "USB (C/1/2)", "usb345": "USB (3/4/5)", "adj_conv": "Adj. Voltage", 
+                "pwm1": "PWM 1", "pwm2": "PWM 2",
+            };
+
+            // --- Connection Status ---
+            function updateConnectionStatus(proxyConf, statusOk) {
+                if (!proxyConf || Object.keys(proxyConf).length === 0) {
+                    connectionIndicator.className = 'disconnected';
+                    document.querySelectorAll('.save-config-button').forEach(btn => btn.disabled = true);
+                    comPortElement.textContent = "Proxy Offline";
+                    return;
+                }
+
+                if (proxyConf.serialPortName) {
+                    if (statusOk) {
+                        document.querySelectorAll('.save-config-button').forEach(btn => btn.disabled = false);
+                        connectionIndicator.className = 'connected';
+                        comPortElement.textContent = proxyConf.serialPortName;
+                    } else {
+                        document.querySelectorAll('.save-config-button').forEach(btn => btn.disabled = true);
+                        connectionIndicator.className = 'disconnected';
+                        comPortElement.textContent = `Connecting to ${proxyConf.serialPortName}...`;
+                    }
+                } else {
+                    connectionIndicator.className = 'connecting';
+                    comPortElement.textContent = "Auto-detecting...";
+                }
+
+            }
+
+            // --- Unsaved Changes ---
+            function setupChangeDetection() {
+                const configForm = document.getElementById('config-form');
+                configForm.addEventListener('input', (e) => {
+                    const changedSection = e.target.closest('.config-group') || e.target.closest('.collapsible-content');
+
+                    if (changedSection) {
+                        const saveButton = changedSection.querySelector('button.save-config-button') || changedSection.querySelector('button#save-switch-names-button') || changedSection.querySelector('button#save-proxy-config-button');
+                        const header = changedSection.querySelector('h3, h4');
+
+                        if (saveButton) {
+                            saveButton.classList.add('needs-saving');
+                        }
+                        if (header) {
+                            header.classList.add('has-unsaved-changes');
+                        }
+                    }
+                });
+            }
+
+            function resetUnsavedIndicators() {
+                document.querySelectorAll('button.needs-saving').forEach(btn => btn.classList.remove('needs-saving'));
+                document.querySelectorAll('.has-unsaved-changes').forEach(header => header.classList.remove('has-unsaved-changes'));
+            }
+
+            // --- Heater Mode UI ---
+            function updateHeaterModeView(heaterIndex) {
+                const modeSelect = document.getElementById(`heater-${heaterIndex}-mode`);
+                const selectedMode = modeSelect.value;
+                document.querySelectorAll(`#heater-${heaterIndex} .mode-settings`).forEach(el => el.classList.remove('active'));
+                const activeSettings = document.getElementById(`heater-${heaterIndex}-mode-${selectedMode}`);
+                if (activeSettings) activeSettings.classList.add('active');
+            }
+
+            // --- Data Fetching and Population ---
+            async function fetchConfig() {
+                try {
+                    const response = await fetch('/api/v1/config'); 
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const config = await response.json();
+                    originalConfig = JSON.parse(JSON.stringify(config)); // Deep copy
+                    
+                    document.getElementById('adj-voltage').value = config.av;
+
+                    if (config.so) { // sensor_offsets -> so
+                        document.getElementById('offset-sht40-temp').value = config.so.st;
+                        document.getElementById('offset-sht40-humidity').value = config.so.sh;
+                        document.getElementById('offset-ds18b20-temp').value = config.so.dt;
+                        document.getElementById('offset-ina219-voltage').value = config.so.iv;
+                        document.getElementById('offset-ina219-current').value = config.so.ic;
+                    }
+
+                    if (config.ps) { // power_startup_states -> ps
+                        for (const [key, value] of Object.entries(config.ps)) {
+                            const checkbox = document.querySelector(`#power-startup-states input[data-key="${key.toLowerCase()}"]`);
+                            if (checkbox) checkbox.checked = value;
+                        }
+                    }
+
+                    if (config.ui) { // update_intervals_ms -> ui
+                        document.getElementById('interval-ina219').value = config.ui.i;
+                        document.getElementById('interval-sht40').value = config.ui.s;
+                        document.getElementById('interval-ds18b20').value = config.ui.d;
+                    }
+
+                    if (config.ac) { // averaging_counts -> ac
+                        document.getElementById('avg-sht40-temp').value = config.ac.st;
+                        document.getElementById('avg-sht40-humidity').value = config.ac.sh;
+                        document.getElementById('avg-ds18b20-temp').value = config.ac.dt;
+                        document.getElementById('avg-ina219-voltage').value = config.ac.iv;
+                        document.getElementById('avg-ina219-current').value = config.ac.ic;
+                    }
+
+                    config.dh.forEach((heaterConf, i) => { // dew_heaters -> dh
+                        document.getElementById(`heater-${i}-mode`).value = heaterConf.m;
+                        document.getElementById(`heater-${i}-startup-enabled`).checked = heaterConf.en;
+                        document.getElementById(`heater-${i}-manual-power`).value = heaterConf.mp;
+                        document.getElementById(`heater-${i}-target-offset`).value = heaterConf.to;
+                        document.getElementById(`heater-${i}-pid-kp`).value = heaterConf.kp;
+                        document.getElementById(`heater-${i}-pid-ki`).value = heaterConf.ki;
+                        document.getElementById(`heater-${i}-pid-kd`).value = heaterConf.kd;
+                        document.getElementById(`heater-${i}-start-delta`).value = heaterConf.sd;
+                        document.getElementById(`heater-${i}-end-delta`).value = heaterConf.ed;
+                        document.getElementById(`heater-${i}-max-power`).value = heaterConf.xp;
+                        updateHeaterModeView(i);
+                    });
+                    
+                    deviceResponseElement.textContent = "Configuration loaded successfully.";
+                    return true;
+                } catch (error) {
+                    console.error('Error fetching config:', error);
+                    deviceResponseElement.textContent = `Error fetching config: ${error.message}`;
+                    return false;
+                }
+            }
+
+            async function fetchProxyConfig() {
+                let statusOk = false;
+                try {
+                    const response = await fetch('/api/v1/proxy/config');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const proxyConf = await response.json();
+                    originalProxyConfig = JSON.parse(JSON.stringify(proxyConf));
+                    
+                    if (proxyConf) {
+                        document.getElementById('proxy-serial-port').value = proxyConf.serialPortName || '';
+                        document.getElementById('proxy-network-port').value = proxyConf.networkPort || 8080;
+                        document.getElementById('proxy-log-level').value = proxyConf.logLevel || 'INFO';
+                        
+                        populateSwitchNameInputs(proxyConf.switchNames);
+                        populatePowerControls(proxyConf.switchNames);
+                        populateStartupStateLabels(proxyConf.switchNames);
+                        statusOk = true;
+                    }
+                    updateConnectionStatus(proxyConf, statusOk);
+                } catch (error) {
+                    console.error('Error fetching proxy config:', error);
+                    updateConnectionStatus(null, false);
+                    const defaultNames = {};
+                    Object.values(switchIDMap).forEach(key => defaultNames[key] = key);
+                    populateSwitchNameInputs(defaultNames);
+                    populatePowerControls(defaultNames);
+                    populateStartupStateLabels(defaultNames);
+                }
+            }
+
+            function populateSwitchNameInputs(switchNames) {
+                const grid = document.getElementById('proxy-switch-names-grid');
+                grid.innerHTML = '';
+                for (const [key, name] of Object.entries(switchNames)) {
+                    const label = document.createElement('label');
+                    label.textContent = `${key}: `;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.dataset.key = key;
+                    input.value = name;
+                    grid.appendChild(label).appendChild(input);
+                }
+            }
+
+            function populateStartupStateLabels(switchNames) {
+                const grid = document.getElementById('power-startup-states');
+                const shortSwitchIDMap = {
+                    "dc1": "d1", "dc2": "d2", "dc3": "d3", "dc4": "d4", "dc5": "d5",
+                    "usbc12": "u12", "usb345": "u34", "adj_conv": "adj"
+                };
+                grid.innerHTML = '';
+                const startupStateKeys = ["dc1", "dc2", "dc3", "dc4", "dc5", "usbc12", "usb345", "adj_conv"];
+                startupStateKeys.forEach(key => {
+                    const shortKey = shortSwitchIDMap[key] || key;
+                    const displayName = (switchNames && switchNames[key]) ? switchNames[key] : (longToShortKeyMap[key] || key);
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.dataset.key = shortKey;
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(` ${displayName}`));
+                    grid.appendChild(label);
+                });
+            }
+
+            // --- Data Saving ---
+            async function saveSensorSettings() {
+                const newConfig = {
+                    so: { // sensor_offsets
+                        st: parseFloat(document.getElementById('offset-sht40-temp').value.replace(',', '.')),
+                        sh: parseFloat(document.getElementById('offset-sht40-humidity').value.replace(',', '.')),
+                        dt: parseFloat(document.getElementById('offset-ds18b20-temp').value.replace(',', '.')),
+                        iv: parseFloat(document.getElementById('offset-ina219-voltage').value.replace(',', '.')),
+                        ic: parseFloat(document.getElementById('offset-ina219-current').value.replace(',', '.'))
+                    },
+                    ui: { // update_intervals_ms
+                        i: parseInt(document.getElementById('interval-ina219').value, 10),
+                        s: parseInt(document.getElementById('interval-sht40').value, 10),
+                        d: parseInt(document.getElementById('interval-ds18b20').value, 10)
+                    },
+                    ac: { // averaging_counts
+                        st: parseInt(document.getElementById('avg-sht40-temp').value, 10),
+                        sh: parseInt(document.getElementById('avg-sht40-humidity').value, 10),
+                        dt: parseInt(document.getElementById('avg-ds18b20-temp').value, 10),
+                        iv: parseInt(document.getElementById('avg-ina219-voltage').value, 10),
+                        ic: parseInt(document.getElementById('avg-ina219-current').value, 10)
+                    }
+                };
+
+                try {
+                    if (connectionIndicator.className !== 'connected') {
+                        alert('Cannot save device configuration: Device is not connected.');
+                        return;
+                    }
+                    deviceResponseElement.textContent = "Saving sensor settings...";
+                    const response = await fetch('/api/v1/config/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newConfig)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    deviceResponseElement.textContent = "Sensor settings saved successfully!";
+                    alert('Sensor settings saved successfully!');
+                    resetUnsavedIndicators();
+                    fetchConfig();
+                } catch (error) {
+                    console.error('Error saving sensor settings:', error);
+                    deviceResponseElement.textContent = `Error saving sensor settings: ${error.message}`;
+                    alert('Error saving sensor settings.');
+                }
+            }
+
+            async function saveDewHeaterSettings() {
+                const dewHeatersConfig = [0, 1].map(i => ({
+                    n: originalConfig.dh[i].n, // name
+                    en: document.getElementById(`heater-${i}-startup-enabled`).checked, // enabled_on_startup
+                    m: parseInt(document.getElementById(`heater-${i}-mode`).value, 10), // mode
+                    mp: parseInt(document.getElementById(`heater-${i}-manual-power`).value, 10) || 0, // manual_power
+                    to: parseFloat(document.getElementById(`heater-${i}-target-offset`).value.replace(',', '.')), // target_offset
+                    kp: parseFloat(document.getElementById(`heater-${i}-pid-kp`).value.replace(',', '.')), // pid_kp
+                    ki: parseFloat(document.getElementById(`heater-${i}-pid-ki`).value.replace(',', '.')), // pid_ki
+                    kd: parseFloat(document.getElementById(`heater-${i}-pid-kd`).value.replace(',', '.')), // pid_kd
+                    sd: parseFloat(document.getElementById(`heater-${i}-start-delta`).value.replace(',', '.')), // start_delta
+                    ed: parseFloat(document.getElementById(`heater-${i}-end-delta`).value.replace(',', '.')), // end_delta
+                    xp: parseInt(document.getElementById(`heater-${i}-max-power`).value, 10) || 0 // max_power
+                }));
+
+                const newConfig = {
+                    dh: dewHeatersConfig // dew_heaters
+                };
+
+                try {
+                    if (connectionIndicator.className !== 'connected') {
+                        alert('Cannot save device configuration: Device is not connected.');
+                        return;
+                    }
+                    deviceResponseElement.textContent = "Saving dew heater settings...";
+                    const response = await fetch('/api/v1/config/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newConfig)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    deviceResponseElement.textContent = "Dew heater settings saved successfully!";
+                    alert('Dew heater settings saved successfully!');
+                    resetUnsavedIndicators();
+                    fetchConfig();
+                } catch (error) {
+                    console.error('Error saving dew heater settings:', error);
+                    deviceResponseElement.textContent = `Error saving dew heater settings: ${error.message}`;
+                    alert('Error saving dew heater settings.');
+                }
+            }
+
+            async function saveAdjustableVoltagePreset() {
+                const newConfig = {
+                    av: parseFloat(document.getElementById('adj-voltage').value.replace(',', '.')) // adj_conv_preset_v
+                };
+
+                try {
+                    if (connectionIndicator.className !== 'connected') {
+                        alert('Cannot save device configuration: Device is not connected.');
+                        return;
+                    }
+                    deviceResponseElement.textContent = "Saving adjustable voltage preset...";
+                    const response = await fetch('/api/v1/config/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newConfig)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    deviceResponseElement.textContent = "Adjustable voltage preset saved successfully!";
+                    alert('Adjustable voltage preset saved successfully!');
+                    resetUnsavedIndicators();
+                    fetchConfig();
+                } catch (error) {
+                    console.error('Error saving adjustable voltage preset:', error);
+                    deviceResponseElement.textContent = `Error saving adjustable voltage preset: ${error.message}`;
+                    alert('Error saving adjustable voltage preset.');
+                }
+            }
+
+            async function savePowerStartupStates() {
+                const powerStartupStates = Array.from(document.querySelectorAll('#power-startup-states input[type="checkbox"]')).reduce((acc, cb) => {
+                    acc[cb.dataset.key] = cb.checked;
+                    return acc;
+                }, {});
+
+                const newConfig = {
+                    ps: powerStartupStates // power_startup_states
+                };
+
+                try {
+                    if (connectionIndicator.className !== 'connected') {
+                        alert('Cannot save device configuration: Device is not connected.');
+                        return;
+                    }
+                    deviceResponseElement.textContent = "Saving power startup states...";
+                    const response = await fetch('/api/v1/config/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newConfig)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    deviceResponseElement.textContent = "Power startup states saved successfully!";
+                    alert('Power startup states saved successfully!');
+                    resetUnsavedIndicators();
+                    fetchConfig();
+                } catch (error) {
+                    console.error('Error saving power startup states:', error);
+                    deviceResponseElement.textContent = `Error saving power startup states: ${error.message}`;
+                    alert('Error saving power startup states.');
+                }
+            }
+
+            async function saveProxyConfig() {
+                const newProxyConfig = { 
+                    serialPortName: document.getElementById('proxy-serial-port').value.trim(),
+                    networkPort: parseInt(document.getElementById('proxy-network-port').value, 10) || 8080,
+                    logLevel: document.getElementById('proxy-log-level').value,
+                    switchNames: {}
+                };
+                document.querySelectorAll('#proxy-switch-names-grid input').forEach(input => {
+                    newProxyConfig.switchNames[input.dataset.key] = input.value.trim();
+                });
+
+                try {
+                    deviceResponseElement.textContent = "Saving proxy settings...";
+                    const response = await fetch('/api/v1/proxy/config/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newProxyConfig)
+                    });
+                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    deviceResponseElement.textContent = "Proxy settings saved.";
+                    alert("Proxy settings saved. Some changes may require an application restart.");
+                    resetUnsavedIndicators();
+                    fetchProxyConfig(); // Re-fetch to update originalProxyConfig
+                } catch (error) {
+                    console.error('Error saving proxy config:', error);
+                    deviceResponseElement.textContent = `Error saving proxy config: ${error.message}`;
+                    alert('Error saving proxy connection settings.');
+                }
+            }
+
+
+
+            // --- Power Control ---
+            async function setAllPower(state) {
+                try {
+                    await fetch('/api/v1/power/all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ state })
+                    });
+                    setTimeout(fetchPowerStatus, 500);
+                } catch (error) {
+                    console.error('Error setting all power states:', error);
+                }
+            }
+
+            async function setPowerState(switchId, state) {
+                const formData = new URLSearchParams();
+                formData.append('Id', switchId);
+                formData.append('State', state);
+                try {
+                    await fetch('/api/v1/switch/0/setswitchvalue', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData
+                    });
+                } catch (error) {
+                    console.error(`Error setting power state for switch ${switchId}:`, error);
+                    fetchPowerStatus(); 
+                }
+            }
+
+            async function fetchPowerStatus() {
+                try {
+                    const response = await fetch('/api/v1/power/status');
+                    if (!response.ok) return;
+                    const status = await response.json();
+                    let allOn = true;
+                    for (const [key, value] of Object.entries(status)) {
+                        const switchInput = document.querySelector(`.switch-toggle input[data-key='${key}']`);
+                        if (switchInput) {
+                            switchInput.checked = (value === 1);
+                            if (value !== 1) allOn = false;
+                        }
+                    }
+                    masterPowerSwitch.checked = allOn;
+                } catch (error) {
+                    // console.error('Error fetching power status:', error);
+                }
+            }
+
+            function populatePowerControls(switchNames) {
+                const grid = document.getElementById('power-grid');
+                const shortSwitchIDMap = {
+                    "dc1": "d1", "dc2": "d2", "dc3": "d3", "dc4": "d4", "dc5": "d5",
+                    "usbc12": "u12", "usb345": "u34", "adj_conv": "adj", "pwm1": "pwm1", "pwm2": "pwm2",
+                };
+                grid.innerHTML = '';
+                for (const [id, key] of Object.entries(switchIDMap)) {
+                    const shortKey = shortSwitchIDMap[key] || key;
+                    const displayName = (switchNames && switchNames[key]) ? switchNames[key] : (longToShortKeyMap[key] || key);
+                    const controlDiv = document.createElement('div');
+                    controlDiv.className = 'switch-control';
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'name';
+                    nameSpan.textContent = displayName;
+                    const switchLabel = document.createElement('label');
+                    switchLabel.className = 'switch-toggle';
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.dataset.key = shortKey;
+                    input.dataset.id = id;
+                    input.addEventListener('change', (e) => setPowerState(e.target.dataset.id, e.target.checked));
+                    const sliderSpan = document.createElement('span');
+                    sliderSpan.className = 'slider';
+                    switchLabel.appendChild(input);
+                    switchLabel.appendChild(sliderSpan);
+                    controlDiv.appendChild(nameSpan);
+                    controlDiv.appendChild(switchLabel);
+                    grid.appendChild(controlDiv);
+                }
+            }
+
+            // --- UI and Event Handlers ---
+            function setupCollapsible() {
+                document.querySelectorAll('.collapsible-header').forEach(header => {
+                    const content = header.nextElementSibling;
+                    const icon = header.querySelector('.toggle-icon');
+                    const titleElement = header.querySelector('h2, h3');
+                    if (!content || !icon || !titleElement) return;
+                    const storageKey = `collapsibleState_${titleElement.textContent.trim().replace(/\s+/g, '_')}`;
+                    const isCollapsed = localStorage.getItem(storageKey) !== 'false';
+                    if (isCollapsed) {
+                        content.classList.add('collapsed');
+                        icon.classList.add('collapsed');
+                    }
+                    header.addEventListener('click', () => {
+                        const currentlyCollapsed = content.classList.toggle('collapsed');
+                        icon.classList.toggle('collapsed', currentlyCollapsed);
+                        localStorage.setItem(storageKey, currentlyCollapsed);
+                    });
+                });
+            }
+
+            async function fetchLiveStatus() {
+                let statusOk = false;
+                try {
+                    const response = await fetch('/api/v1/status');
+                    if (!response.ok) throw new Error('No response');
+                    const data = await response.json();
+                    if (Object.keys(data).length === 0) throw new Error('Empty response');
+
+                    const format = (elId, value, points) => {
+                        const el = document.getElementById(elId);
+                        if (el) el.textContent = typeof value === 'number' ? value.toFixed(points) : value;
+                    }
+                    format('status-v', data.v, 2); // v is already short
+                    format('status-i', data.i / 1000, 2); // i is already short
+                    format('status-p', data.p, 2); // p is already short
+                    format('status-t_amb', data.t_amb, 1); // t_amb is already short
+                    format('status-h_amb', data.h_amb, 1); // h_amb is already short
+                    format('status-d', data.d, 1); // d is already short
+                    format('status-t_lens', data.t_lens, 1); // t_lens is already short
+                    format('status-pwm1', data.pwm1, 0); // pwm1 is already short
+                    format('status-pwm2', data.pwm2, 0); // pwm2 is already short
+                    statusOk = true;
+                } catch (error) {
+                    const fields = ['v', 'i', 'p', 't_amb', 'h_amb', 'd', 't_lens', 'pwm1', 'pwm2'];
+                    fields.forEach(f => {
+                        const el = document.getElementById(`status-${f}`);
+                        if (el) el.textContent = '-';
+                    });
+                }
+                updateConnectionStatus(originalProxyConfig, statusOk);
+            }
+
+            function setupLogViewer() {
+                const logContainer = document.getElementById('log-container');
+                const maxLogLines = 500;
+                let socket;
+                function connect() {
+                    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const host = window.location.host;
+                    const wsUrl = `${proto}//${host}/ws/logs`;
+                    socket = new WebSocket(wsUrl);
+                    socket.onopen = () => {
+                        const line = document.createElement('div');
+                        line.style.color = '#28a745';
+                        line.textContent = '--- Connected to live log stream ---';
+                        logContainer.appendChild(line);
+                    };
+                    socket.onmessage = (event) => {
+                        const message = event.data;
+                        const line = document.createElement('div');
+                        if (message.includes('[ERROR]')) line.className = 'log-line-error';
+                        else if (message.includes('[WARN]')) line.className = 'log-line-warn';
+                        else if (message.includes('[DEBUG]')) line.className = 'log-line-debug';
+                        line.textContent = message.trim();
+                        logContainer.appendChild(line);
+                        logContainer.scrollTop = logContainer.scrollHeight;
+                        while (logContainer.childNodes.length > maxLogLines) {
+                            logContainer.removeChild(logContainer.firstChild);
+                        }
+                    };
+                    socket.onclose = () => {
+                        const line = document.createElement('div');
+                        line.className = 'log-line-error';
+                        line.textContent = '--- Disconnected from live log stream. Retrying... ---';
+                        logContainer.appendChild(line);
+                        logContainer.scrollTop = logContainer.scrollHeight;
+                        setTimeout(connect, 3000);
+                    };
+                    socket.onerror = (error) => console.error('WebSocket error:', error);
+                }
+                connect();
+            }
+
+            async function rebootDevice() {
+                if (!confirm('Are you sure you want to reboot the device?')) return;
+                try {
+                    deviceResponseElement.textContent = "Sending reboot command...";
+                    const response = await fetch('/api/v1/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: 'reboot' })
+                    });
+                    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                    deviceResponseElement.textContent = "Reboot command sent successfully. The device will restart.";
+                    alert('Reboot command sent. Please wait a moment for the device to restart.');
+                } catch (error) {
+                    deviceResponseElement.textContent = `Error sending reboot command: ${error.message}`;
+                    alert('Error sending reboot command.');
+                }
+            }
+
+            async function factoryResetDevice() {
+                if (!confirm('Are you sure you want to perform a factory reset? This will erase all your settings and reboot the device.')) return;
+                try {
+                    deviceResponseElement.textContent = "Sending factory reset command...";
+                    const response = await fetch('/api/v1/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: 'factory_reset' })
+                    });
+                    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                    deviceResponseElement.textContent = "Factory reset command sent. The device will restart with default settings.";
+                    alert('Factory reset command sent. The device will now restart. Please refresh this page after a moment.');
+                } catch (error) {
+                    deviceResponseElement.textContent = `Error sending factory reset command: ${error.message}`;
+                    alert('Error sending factory reset command.');
+                }
+            }
+
+            // --- Backup & Restore ---
+            function createBackup() {
+                window.location.href = '/api/v1/backup/create';
+            }
+
+            function triggerRestore() {
+                restoreFileInput.click();
+            }
+
+            async function handleRestoreFile(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+
+                if (!confirm('Are you sure you want to restore the configuration? This will overwrite ALL current proxy and device settings.\n\nNOTE: The COM port will be ignored and auto-detection will be triggered to find the device on this computer.')) {
+                    event.target.value = null; // Clear the file input
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const content = e.target.result;
+                        JSON.parse(content); // Validate JSON
+
+                        deviceResponseElement.textContent = "Restoring configuration...";
+                        const response = await fetch('/api/v1/backup/restore', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: content
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`Restore failed: ${errorText}`);
+                        }
+
+                        const successText = await response.text();
+                        alert(successText);
+                        deviceResponseElement.textContent = successText;
+
+                        // Await the full reload of the config
+                        await initialLoad(); 
+
+                    } catch (error) {
+                        console.error('Error restoring backup:', error);
+                        alert(`Error during restore: ${error.message}`);
+                        deviceResponseElement.textContent = `Error during restore: ${error.message}`;
+                    } finally {
+                        event.target.value = null; // Clear the file input
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            // --- Initial Load & Event Listeners ---
+            async function fetchFirmwareVersion() {
+                try {
+                    const response = await fetch('/api/v1/firmware/version');
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    firmwareVersionElement.textContent = data.version;
+                } catch (error) {
+                    firmwareVersionElement.textContent = "unknown";
+                }
+            }
+
+            async function initialLoad() {
+                setupCollapsible();
+                await fetchProxyConfig();
+                await fetchConfig();
+                await fetchPowerStatus();
+                await fetchFirmwareVersion();
+                setupLogViewer();
+                setupChangeDetection();
+                setInterval(fetchLiveStatus, 2000); // Fetch status and update connection indicator
+                setInterval(fetchPowerStatus, 5000);
+            }
+
+            initialLoad();
+            
+            masterPowerSwitch.addEventListener('change', (e) => setAllPower(e.target.checked));
+            document.getElementById('heater-0-mode').addEventListener('change', () => updateHeaterModeView(0));
+            document.getElementById('heater-1-mode').addEventListener('change', () => updateHeaterModeView(1));
+            
+            document.querySelector('#power-startup-states + .save-config-button').addEventListener('click', savePowerStartupStates);
+            document.getElementById('adj-voltage').closest('.collapsible-content').querySelector('.save-config-button').addEventListener('click', saveAdjustableVoltagePreset);
+            document.querySelector('#dew-heater-settings .collapsible-content > .save-config-button').addEventListener('click', saveDewHeaterSettings);
+            document.querySelector('#sensor-settings-group .collapsible-content > .save-config-button').addEventListener('click', saveSensorSettings);
+
+            document.getElementById('save-proxy-config-button').addEventListener('click', saveProxyConfig);
+            document.getElementById('save-switch-names-button').addEventListener('click', saveProxyConfig);
+            if (rebootButton) rebootButton.addEventListener('click', rebootDevice);
+            if (factoryResetButton) factoryResetButton.addEventListener('click', factoryResetDevice);
+            if (backupButton) backupButton.addEventListener('click', createBackup);
+            if (restoreButton) restoreButton.addEventListener('click', triggerRestore);
+            if (restoreFileInput) restoreFileInput.addEventListener('change', handleRestoreFile);
+        });
+    </script>
+
+</body>
+</html>
