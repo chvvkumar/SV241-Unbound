@@ -159,7 +159,9 @@
                 
                 const setManifest = (manifest) => {
                     const manifestString = JSON.stringify(manifest);
-                    installButton.manifest = `data:application/json,${encodeURIComponent(manifestString)}`;
+                    const manifestBlob = new Blob([manifestString], {type: 'application/json'});
+                    const manifestUrl = URL.createObjectURL(manifestBlob);
+                    installButton.manifest = manifestUrl;
                 };
 
                 // Set default manifest (standard update)
