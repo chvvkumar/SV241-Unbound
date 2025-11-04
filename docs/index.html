@@ -129,8 +129,7 @@
                     builds: [
                         {
                             chipFamily: "ESP32",
-                            parts: [
-                                { path: fwAsset.browser_download_url, offset: 0x10000 },
+                                { path: `https://api.allorigins.win/raw?url=${fwAsset.browser_download_url}`, offset: 0x10000 },
                             ],
                         },
                     ],
@@ -146,9 +145,9 @@
                             {
                                 chipFamily: "ESP32",
                                 parts: [
-                                    { path: blAsset.browser_download_url, offset: 0x1000 },
-                                    { path: ptAsset.browser_download_url, offset: 0x8000 },
-                                    { path: fwAsset.browser_download_url, offset: 0x10000 },
+                                    { path: `https://api.allorigins.win/raw?url=${blAsset.browser_download_url}`, offset: 0x1000 },
+                                    { path: `https://api.allorigins.win/raw?url=${ptAsset.browser_download_url}`, offset: 0x8000 },
+                                    { path: `https://api.allorigins.win/raw?url=${fwAsset.browser_download_url}`, offset: 0x10000 },
                                 ],
                             },
                         ],
