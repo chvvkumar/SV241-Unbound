@@ -71,17 +71,6 @@
             <strong>Warning:</strong> This process will erase all existing data and settings on your device. Ensure the device is stable and do not disconnect it during the process.
         </div>
 
-        <div class="options">
-            <label for="cors-proxy">CORS Proxy:</label>
-            <select id="cors-proxy">
-                <option value="https://corsproxy.io/?">corsproxy.io</option>
-                <option value="https://api.cors.lol/?url=">api.cors.lol</option>
-                <option value="https://proxy.cors.sh/">proxy.cors.sh</option>
-                <option value="https://api.allorigins.win/raw?url=">allorigins.win</option>
-            </select>
-            <p>If flashing fails with a "Failed to Fetch" error, try selecting a different proxy.</p>
-        </div>
-
         <div>
             <esp-web-install-button></esp-web-install-button>
         </div>
@@ -90,75 +79,31 @@
     </div>
 
     <script type="module">
-        document.addEventListener('DOMContentLoaded', async () => {
-            // --- CONFIGURATION ---
-            const GITHUB_REPO = "DIYAstro/SV241-Unbound";
-            const FIRMWARE_ASSET_NAME = "firmware.bin";
-            const BOOTLOADER_ASSET_NAME = "bootloader.bin";
-            const PARTITIONS_ASSET_NAME = "partitions.bin";
-            // --- END OF CONFIGURATION ---
-
+        document.addEventListener('DOMContentLoaded', () => {
             const statusEl = document.getElementById('status');
             const installButton = document.querySelector("esp-web-install-button");
-            const corsProxySelect = document.getElementById('cors-proxy');
 
-            let releaseData;
-
-            const updateManifest = () => {
-                if (!releaseData) return;
-
-                const version = releaseData.tag_name;
-                const fwAsset = releaseData.assets.find(asset => asset.name.endsWith(FIRMWARE_ASSET_NAME));
-                const blAsset = releaseData.assets.find(asset => asset.name.endsWith(BOOTLOADER_ASSET_NAME));
-                const ptAsset = releaseData.assets.find(asset => asset.name.endsWith(PARTITIONS_ASSET_NAME));
-
-                if (!fwAsset || !blAsset || !ptAsset) {
-                    throw new Error(`Could not find all required firmware assets in the latest release.`);
-                }
-
-                const selectedProxy = corsProxySelect.value;
-
-                const manifest = {
-                    name: `SV241-Unbound (${version}) - Full Install`,
-                    builds: [
-                        {
-                            chipFamily: "ESP32",
-                            parts: [
-                                { path: `${selectedProxy}${blAsset.browser_download_url}`, offset: 0x1000 },
-                                { path: `${selectedProxy}${ptAsset.browser_download_url}`, offset: 0x8000 },
-                                { path: `${selectedProxy}${fwAsset.browser_download_url}`, offset: 0x10000 },
-                            ],
-                        },
-                    ],
-                };
-
-                const manifestString = JSON.stringify(manifest);
-                const manifestBlob = new Blob([manifestString], {type: 'application/json'});
-                const manifestUrl = URL.createObjectURL(manifestBlob);
-                installButton.manifest = manifestUrl;
-                installButton.setAttribute('erase-first', '');
-                statusEl.textContent = `Ready to flash full installation (${version}). All data will be erased.`;
+            const manifest = {
+                name: "SV241-Unbound",
+                builds: [
+                    {
+                        chipFamily: "ESP32",
+                        parts: [
+                            { path: "firmware/bootloader.bin", offset: 0x1000 },
+                            { path: "firmware/partitions.bin", offset: 0x8000 },
+                            { path: "firmware/firmware.bin", offset: 0x10000 },
+                        ],
+                    },
+                ],
             };
 
-            corsProxySelect.addEventListener('change', updateManifest);
+            const manifestString = JSON.stringify(manifest);
+            const manifestBlob = new Blob([manifestString], {type: 'application/json'});
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            installButton.manifest = manifestUrl;
+            installButton.setAttribute('erase-first', '');
 
-            statusEl.textContent = "Searching for the latest release...";
-
-            try {
-                const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
-                if (!response.ok) {
-                    throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
-                }
-                releaseData = await response.json();
-                statusEl.textContent = `Latest release found: ${releaseData.tag_name}`;
-                updateManifest(); // Initial manifest creation
-
-            } catch (error) {
-                console.error(error);
-                statusEl.textContent = `Error: ${error.message}`;
-                installButton.disabled = true;
-                installButton.title = "Flasher could not be initialized. See console for details.";
-            }
+            statusEl.textContent = "Ready to flash. All data will be erased.";
         });
     </script>
 </body>
