@@ -159,54 +159,67 @@ var (
 	singleInstanceMutex windows.Handle // Global variable for the named mutex handle
 )
 
-// checkSingleInstance attempts to create a named mutex to ensure only one instance of the application is running.
+// getNetworkPortFromConfig reads the proxy_config.json file to find the network port.
+// This is a minimal version of loadProxyConfig, designed to be called before logging is set up.
+// It returns the port number or a default value (8080) if any error occurs.
+func getNetworkPortFromConfig() int {
+	const defaultPort = 8080
 
-func checkSingleInstance() {
-
-	mutexName := "SV241AlpacaProxySingleInstanceMutex" // A unique name for the mutex
-
-	// Create a named mutex
-
-	// The 'true' parameter means the calling thread immediately owns the mutex.
-
-	// If the mutex already exists, CreateMutex returns a handle to the existing mutex,
-
-	// and GetLastError returns ERROR_ALREADY_EXISTS.
-
-	singleInstanceMutex, err := windows.CreateMutex(nil, true, windows.StringToUTF16Ptr(mutexName))
-
-	// Check if the mutex already existed. This is the primary check for a running instance.
-
-	if err == nil && windows.GetLastError() == windows.ERROR_ALREADY_EXISTS {
-
-		showMessageBox("SV241 Alpaca Proxy - Already Running", "Another instance of SV241 Alpaca Proxy is already running. This instance will now exit.", windows.MB_OK|windows.MB_ICONINFORMATION)
-
-		windows.CloseHandle(singleInstanceMutex) // Close the handle to the existing mutex
-
-		os.Exit(1)
-
-	}
-
-	// If CreateMutex itself returned an error (not just ERROR_ALREADY_EXISTS via GetLastError)
-
-	// this indicates a more serious problem.
-
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-
-		// Provide a generic English message for the user.
-
-		// The technical details of 'err' are localized by the OS and not suitable for direct display.
-
-		showMessageBox("SV241 Alpaca Proxy - Fatal Error", "The application encountered a fatal error during startup. This might be due to system permissions or a corrupted installation. Please restart your computer or reinstall the application.\nApplication will now exit.", windows.MB_OK|windows.MB_ICONERROR)
-
-		os.Exit(1)
-
+		return defaultPort
 	}
 
-	// If we reach here, the mutex was successfully created and we own it.
+	configFile := filepath.Join(configDir, "SV241AlpacaProxy", "proxy_config.json")
 
-	// The handle is stored in singleInstanceMutex and will be released in onExit().
+	file, err := os.ReadFile(configFile)
+	if err != nil {
+		return defaultPort
+	}
 
+	var config struct {
+		NetworkPort int `json:"networkPort"`
+	}
+	if err := json.Unmarshal(file, &config); err != nil {
+		return defaultPort
+	}
+
+	if config.NetworkPort == 0 {
+		return defaultPort
+	}
+
+	return config.NetworkPort
+}
+
+// checkSingleInstance attempts to create a named mutex to ensure only one instance of the application is running.
+// If another instance is running, or if the mutex cannot be created for any reason, it opens the setup page and exits.
+func checkSingleInstance() {
+	mutexName := "SV241AlpacaProxySingleInstanceMutex" // A unique name for the mutex
+	handle, err := windows.CreateMutex(nil, true, windows.StringToUTF16Ptr(mutexName))
+
+	// The only case where we want to continue running is if we successfully created a *new* mutex.
+	// This happens when the call succeeds (err == nil) AND it didn't already exist.
+	lastError := windows.GetLastError()
+
+	if err == nil && lastError != windows.ERROR_ALREADY_EXISTS {
+		// This is the first instance. We have acquired the mutex.
+		// Assign the handle to the global var so it can be released on exit.
+		singleInstanceMutex = handle
+		return
+	}
+
+	// In all other cases (mutex already exists, or any other error creating it),
+	// we open the setup page and exit, as requested by the user.
+	port := getNetworkPortFromConfig()
+	url := fmt.Sprintf("http://localhost:%d/setup", port)
+	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+
+	// If we got a handle (even to an existing mutex), we should close it.
+	if handle != 0 {
+		windows.CloseHandle(handle)
+	}
+
+	os.Exit(0)
 }
 
 // showMessageBox is a helper function to display a Windows message box.
