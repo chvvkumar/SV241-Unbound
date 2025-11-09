@@ -101,21 +101,21 @@ void createDefaultDewHeaterConfig(int index) {
     if (index == 0) { // PWM1 defaults to PID
         config.dew_heaters[index].mode = 1;
         config.dew_heaters[index].target_offset = 3.0f;
-        config.dew_heaters[index].pid_kp = 300.0;
-        config.dew_heaters[index].pid_ki = 80.0;
-        config.dew_heaters[index].pid_kd = 40.0;
+        config.dew_heaters[index].pid_kp = 20.0;
+        config.dew_heaters[index].pid_ki = 1.0;
+        config.dew_heaters[index].pid_kd = 15.0;
         config.dew_heaters[index].start_delta = 5.0f;
         config.dew_heaters[index].end_delta = 1.0f;
         config.dew_heaters[index].max_power = 80;
     } else { // PWM2 defaults to Ambient Tracking
         config.dew_heaters[index].mode = 2;
+        config.dew_heaters[index].target_offset = 3.0f;
+        config.dew_heaters[index].pid_kp = 20.0;
+        config.dew_heaters[index].pid_ki = 1.0;
+        config.dew_heaters[index].pid_kd = 15.0;
         config.dew_heaters[index].start_delta = 5.0f;
         config.dew_heaters[index].end_delta = 1.0f;
         config.dew_heaters[index].max_power = 80;
-        config.dew_heaters[index].target_offset = 3.0f;
-        config.dew_heaters[index].pid_kp = 120.0;
-        config.dew_heaters[index].pid_ki = 1.5;
-        config.dew_heaters[index].pid_kd = 15.0;
     }
 }
 

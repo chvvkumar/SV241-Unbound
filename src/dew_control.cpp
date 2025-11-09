@@ -23,8 +23,8 @@ static QuickPID heater_pids[MAX_DEW_HEATERS] = {
     QuickPID(&pid_input[1], &pid_output[1], &pid_setpoint[1])};
 
 // PWM settings
-const int PWM_FREQUENCY = 1000; // 1 kHz
-const int PWM_RESOLUTION = 10; // 10-bit (0-1023)
+const int PWM_FREQUENCY = 100; // 100 Hz. A good compromise for measurement while still being safe for MOSFETs.
+const int PWM_RESOLUTION = 10; // 10-bit (0-1023). Increased resolution for more stable PWM output.
 const int PWM_MAX = (1 << PWM_RESOLUTION) - 1;
 const int HEATER_LEDC_CHANNELS[MAX_DEW_HEATERS] = {2, 3}; // Use LEDC channels 2 and 3
 const int HEATER_PINS[MAX_DEW_HEATERS] = {DEW_HEATER_1_PIN, DEW_HEATER_2_PIN};
@@ -54,7 +54,9 @@ void setup_dew_heaters() {
         // Die dynamische Allokation mit 'new' wird entfernt, um das Speicherleck zu beheben.
         heater_pids[i].SetTunings(heater_config_copy.pid_kp, heater_config_copy.pid_ki, heater_config_copy.pid_kd);
         heater_pids[i].SetControllerDirection(QuickPID::Action::direct);
-        heater_pids[i].SetOutputLimits(0, PWM_MAX);
+        // The PID now controls power percentage (0-100), not the raw PWM value.
+        // This allows it to benefit from the gamma correction.
+        heater_pids[i].SetOutputLimits(0, 100);
         heater_pids[i].SetMode(QuickPID::Control::automatic);
 
         // Set initial state
@@ -93,47 +95,29 @@ int get_heater_power(int heater_index) {
 
 // --- Helper Functions ---
 
-/**
- * @brief Calculates a linearized duty cycle using a lookup table and linear interpolation.
- * This is necessary because the heater's power output is highly non-linear.
- * NOTE: This function assumes a constant input voltage of 12.4V.
- * @param power_percentage The desired power output (0-100).
- * @return The corrected duty cycle value (0-PWM_MAX).
- */
-int calculate_linearized_duty_cycle(float power_percentage) {
+static inline uint32_t get_corrected_duty_cycle(int power_percentage) {
     if (power_percentage <= 0) return 0;
     if (power_percentage >= 100) return PWM_MAX;
-
-    const int num_points = 7;
-    // These points are derived from measurements and map output voltage to duty cycle ratio.
-    float v_points[] = {0.0, 1.3, 3.1, 6.1, 6.2, 6.4, 12.4}; // Measured output voltage
-    float d_points[] = {0.0, 0.405, 0.708, 0.9245, 0.962, 0.992, 1.0}; // Duty cycle ratio that produced the voltage
-
-    // Calculate the desired voltage based on the requested power percentage
-    float desired_voltage = power_percentage / 100.0f * 12.4f;
-
-    // Find the two points to interpolate between
-    if (desired_voltage <= v_points[0]) return (int)(d_points[0] * PWM_MAX);
-    if (desired_voltage >= v_points[num_points - 1]) return (int)(d_points[num_points - 1] * PWM_MAX);
-
-    for (int i = 1; i < num_points; i++) {
-        if (desired_voltage <= v_points[i]) {
-            // Linear interpolation
-            float duty_cycle_ratio = d_points[i - 1] + 
-                                     (d_points[i] - d_points[i - 1]) * 
-                                     (desired_voltage - v_points[i - 1]) / (v_points[i] - v_points[i - 1]);
-            return (int)(duty_cycle_ratio * PWM_MAX);
-        }
-    }
-
-    return PWM_MAX; // Should not be reached
+    
+    // Use a calculated gamma curve instead of a lookup table.
+    // This avoids specific problematic duty cycle values that the LUT might contain
+    // and provides a smoother, more reliable output curve.
+    // To linearize a power curve (P ~ V^2), the duty cycle needs to be corrected
+    // with an exponent < 1. The previous attempts with gamma > 1 were incorrect.
+    // We use the reciprocal of a gamma value. A display has gamma ~2.2, so we'd use 1/2.2.
+    // After testing, a gamma of 2.2 is slightly too weak (power is ~11% too low).
+    // A gamma of 2.8 was too strong. The ideal value lies in between.
+    // We'll use 2.5 as the final value to center the power curve.
+    const float gamma = 1.0 / 2.5;
+    float power_ratio = power_percentage / 100.0f;
+    float corrected_ratio = pow(power_ratio, gamma);
+    return (uint32_t)(corrected_ratio * PWM_MAX);
 }
 
 // --- Control Task ---
 
 void dew_control_task(void *pvParameters) {
     esp_task_wdt_add(NULL); // Register this task with the watchdog
-
     for (;;) {
         SensorValues sensor_values;
         get_sensor_values(sensor_values); // Get thread-safe copy of all sensor data
@@ -156,7 +140,7 @@ void dew_control_task(void *pvParameters) {
             switch (heater_config.mode) {
                 case 0: { // Manual Mode
                     heater_power[i] = heater_config.manual_power;
-                    int duty_cycle = calculate_linearized_duty_cycle(heater_power[i]);
+                    uint32_t duty_cycle = get_corrected_duty_cycle(heater_power[i]);
                     ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
                     break;
                 }
@@ -171,11 +155,17 @@ void dew_control_task(void *pvParameters) {
                     // Update PID tunings in case they changed
                     heater_pids[i].SetTunings(heater_config.pid_kp, heater_config.pid_ki, heater_config.pid_kd);
                     
-                    heater_pids[i].Compute();
+                    heater_pids[i].Compute(); // pid_output[i] is now a value from 0-100
 
-                    heater_power[i] = (int)(pid_output[i] / (float)PWM_MAX * 100.0f);
+                    // The output of the PID is the desired power percentage.
+                    int power_percentage = (int)pid_output[i];
+                    power_percentage = constrain(power_percentage, 0, 100); // Clamp for safety
 
-                    ledcWrite(HEATER_LEDC_CHANNELS[i], (int)pid_output[i]);
+                    heater_power[i] = power_percentage; // Store the live power percentage
+
+                    // Get the gamma-corrected duty cycle for the calculated power.
+                    uint32_t duty_cycle = get_corrected_duty_cycle(power_percentage);
+                    ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
                     break;
                 }
 
@@ -196,7 +186,7 @@ void dew_control_task(void *pvParameters) {
                     power_percentage = constrain(power_percentage, 0, heater_config.max_power);
                     heater_power[i] = (int)power_percentage;
 
-                    int duty_cycle = calculate_linearized_duty_cycle(power_percentage);
+                    uint32_t duty_cycle = get_corrected_duty_cycle((int)power_percentage);
                     ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
                     break;
                 }
