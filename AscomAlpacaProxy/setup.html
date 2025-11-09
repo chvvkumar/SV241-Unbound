@@ -909,7 +909,7 @@
                     const config = await response.json();
                     originalConfig = JSON.parse(JSON.stringify(config)); // Deep copy
                     
-                    document.getElementById('adj-voltage').value = config.av;
+                    document.getElementById('adj-voltage').value = config.av !== undefined ? config.av : ''; // Behandelt 'av', wenn es undefined ist
 
                     if (config.so) { // sensor_offsets -> so
                         document.getElementById('offset-sht40-temp').value = config.so.st;
@@ -940,20 +940,23 @@
                         document.getElementById('avg-ina219-current').value = config.ac.ic;
                     }
 
-                    config.dh.forEach((heaterConf, i) => { // dew_heaters -> dh
-                        document.getElementById(`heater-${i}-mode`).value = heaterConf.m;
-                        document.getElementById(`heater-${i}-startup-enabled`).checked = heaterConf.en;
-                        document.getElementById(`heater-${i}-manual-power`).value = heaterConf.mp;
-                        document.getElementById(`heater-${i}-target-offset`).value = heaterConf.to;
-                        document.getElementById(`heater-${i}-pid-kp`).value = heaterConf.kp;
-                        document.getElementById(`heater-${i}-pid-ki`).value = heaterConf.ki;
-                        document.getElementById(`heater-${i}-pid-kd`).value = heaterConf.kd;
-                        document.getElementById(`heater-${i}-start-delta`).value = heaterConf.sd;
-                        document.getElementById(`heater-${i}-end-delta`).value = heaterConf.ed;
-                        document.getElementById(`heater-${i}-max-power`).value = heaterConf.xp;
-                        document.getElementById(`heater-${i}-pid-sync-factor`).value = heaterConf.psf;
-                        updateHeaterModeView(i);
-                    });
+                    if (config.dh) { // Überprüft, ob 'dh' existiert, bevor iteriert wird
+                        config.dh.forEach((heaterConf, i) => { // dew_heaters -> dh
+                            // Verwendet den Nullish Coalescing Operator (??) für Standardwerte
+                            document.getElementById(`heater-${i}-mode`).value = heaterConf.m ?? 0;
+                            document.getElementById(`heater-${i}-startup-enabled`).checked = heaterConf.en ?? false;
+                            document.getElementById(`heater-${i}-manual-power`).value = heaterConf.mp ?? 0; // Standard auf 0 für Leistungsprozentsatz
+                            document.getElementById(`heater-${i}-target-offset`).value = heaterConf.to ?? '';
+                            document.getElementById(`heater-${i}-pid-kp`).value = heaterConf.kp ?? '';
+                            document.getElementById(`heater-${i}-pid-ki`).value = heaterConf.ki ?? '';
+                            document.getElementById(`heater-${i}-pid-kd`).value = heaterConf.kd ?? '';
+                            document.getElementById(`heater-${i}-start-delta`).value = heaterConf.sd ?? '';
+                            document.getElementById(`heater-${i}-end-delta`).value = heaterConf.ed ?? '';
+                            document.getElementById(`heater-${i}-max-power`).value = heaterConf.xp ?? 0; // Standard auf 0 für maximalen Leistungsprozentsatz
+                            document.getElementById(`heater-${i}-pid-sync-factor`).value = heaterConf.psf ?? '';
+                            updateHeaterModeView(i);
+                        });
+                    }
                     
                     deviceResponseElement.textContent = "Configuration loaded successfully.";
                     return true;
@@ -1511,26 +1514,6 @@
             initialLoad();
             
             masterPowerSwitch.addEventListener('change', (e) => setAllPower(e.target.checked));
-            document.getElementById('heater-0-mode').addEventListener('change', () => updateHeaterModeView(0));
-            document.getElementById('heater-1-mode').addEventListener('change', () => updateHeaterModeView(1));
-            
-            document.querySelector('#power-startup-states + .save-config-button').addEventListener('click', savePowerStartupStates);
-            document.getElementById('adj-voltage').closest('.collapsible-content').querySelector('.save-config-button').addEventListener('click', saveAdjustableVoltagePreset);
-            document.querySelector('#dew-heater-settings .collapsible-content > .save-config-button').addEventListener('click', saveDewHeaterSettings);
-            document.querySelector('#sensor-settings-group .collapsible-content > .save-config-button').addEventListener('click', saveSensorSettings);
-
-            document.getElementById('save-proxy-config-button').addEventListener('click', saveProxyConfig);
-            document.getElementById('save-switch-names-button').addEventListener('click', saveProxyConfig);
-            if (rebootButton) rebootButton.addEventListener('click', rebootDevice);
-            if (factoryResetButton) factoryResetButton.addEventListener('click', factoryResetDevice);
-            if (backupButton) backupButton.addEventListener('click', createBackup);
-            if (restoreButton) restoreButton.addEventListener('click', triggerRestore);
-            if (restoreFileInput) restoreFileInput.addEventListener('change', handleRestoreFile);
-        });
-    </script>
-
-</body>
-</html>     masterPowerSwitch.addEventListener('change', (e) => setAllPower(e.target.checked));
             document.getElementById('heater-0-mode').addEventListener('change', () => updateHeaterModeView(0));
             document.getElementById('heater-1-mode').addEventListener('change', () => updateHeaterModeView(1));
             
