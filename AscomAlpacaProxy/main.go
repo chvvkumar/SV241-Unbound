@@ -134,7 +134,7 @@ var (
 
 // --- Global State ---
 var (
-	firmwareVersion       string
+	firmwareVersion     string
 	sv241Port           serial.Port
 	logFile             *os.File
 	portMutex           = &sync.Mutex{}
@@ -264,6 +264,8 @@ type ProxyConfig struct {
 	LogLevel string `json:"logLevel"`
 
 	SwitchNames map[string]string `json:"switchNames"`
+
+	HeaterAutoEnableLeader map[string]bool `json:"heaterAutoEnableLeader"`
 }
 
 //go:embed setup.html
@@ -613,7 +615,6 @@ func getFirmwareVersion() {
 	firmwareVersion = versionResponse.Version
 	logInfo("Firmware version: %s", firmwareVersion)
 }
-
 
 // startServer finds an open port and starts the HTTP server.
 // It will try to use the configured port, but will search for the next available one if it's in use.
@@ -1463,6 +1464,7 @@ func handleSetProxyConfig(w http.ResponseWriter, r *http.Request) {
 	proxyConfig.NetworkPort = newProxyConfig.NetworkPort
 	proxyConfig.SwitchNames = newProxyConfig.SwitchNames // This line was missing
 	proxyConfig.LogLevel = newProxyConfig.LogLevel
+	proxyConfig.HeaterAutoEnableLeader = newProxyConfig.HeaterAutoEnableLeader
 
 	setLogLevelFromString(proxyConfig.LogLevel)
 	logInfo("Log level set to %s", proxyConfig.LogLevel)
@@ -1557,6 +1559,10 @@ func loadProxyConfig() error {
 			proxyConfig.NetworkPort = 8080 // Set default port if file doesn't exist
 			proxyConfig.LogLevel = "INFO"
 			proxyConfig.SwitchNames = make(map[string]string)
+			proxyConfig.HeaterAutoEnableLeader = map[string]bool{
+				"pwm1": true,
+				"pwm2": true,
+			}
 			for _, internalName := range switchIDMap {
 				proxyConfig.SwitchNames[internalName] = internalName
 			}
@@ -1592,6 +1598,18 @@ func loadProxyConfig() error {
 			logWarn("Missing custom name for '%s', adding with default value.", internalName)
 			proxyConfig.SwitchNames[internalName] = internalName
 		}
+	}
+	// Ensure the auto-enable map exists and is populated for both heaters
+	if proxyConfig.HeaterAutoEnableLeader == nil {
+		proxyConfig.HeaterAutoEnableLeader = make(map[string]bool)
+	}
+	if _, exists := proxyConfig.HeaterAutoEnableLeader["pwm1"]; !exists {
+		logWarn("Missing auto-enable setting for 'pwm1', adding with default 'true'.")
+		proxyConfig.HeaterAutoEnableLeader["pwm1"] = true
+	}
+	if _, exists := proxyConfig.HeaterAutoEnableLeader["pwm2"]; !exists {
+		logWarn("Missing auto-enable setting for 'pwm2', adding with default 'true'.")
+		proxyConfig.HeaterAutoEnableLeader["pwm2"] = true
 	}
 
 	// Apply the loaded log level immediately.
@@ -1872,6 +1890,111 @@ func handleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request) {
 	} else {
 		logWarn("Failed to unmarshal status JSON from device after set command. Raw data: %s", responseJSON)
 		// If parsing fails, fall back to the periodic update; no need to force one.
+	}
+
+	// --- Auto-Enable PID Leader Logic ---
+	// This logic checks if a newly activated switch is a "Follower" heater
+	// and if its configuration dictates that its "Leader" should be auto-enabled.
+	if state { // Only act when a switch is turned ON
+		// Check if the switch is one of the heaters (ASCOM ID 8 or 9)
+		if id == 8 || id == 9 {
+			// Run in a separate goroutine to avoid blocking the response to the client.
+			go func(followerId int) {
+				followerHeaterIndex := followerId - 8 // Map ASCOM ID (8,9) to heater index (0,1)
+				followerKey := fmt.Sprintf("pwm%d", followerHeaterIndex+1)
+
+				// 1. Check if the feature is enabled for this specific heater in the proxy config.
+				if !proxyConfig.HeaterAutoEnableLeader[followerKey] {
+					logDebug("Auto-enable leader is disabled for %s in proxy config. Skipping.", followerKey)
+					return
+				}
+				logDebug("Heater %s (ID %d) turned on. Checking for auto-enable leader logic.", followerKey, followerId)
+
+				// 2. Get the latest firmware config to check modes.
+				configJSON, err := sendCommandToDevice(`{"get":"config"}`, false, 0)
+				if err != nil {
+					logWarn("Auto-Enable: Could not get firmware config: %v", err)
+					return
+				}
+
+				// Define a struct that matches the firmware's JSON response for dew heaters.
+				var fwConfig struct {
+					DH []struct {
+						M int `json:"m"` // Mode (0:Manual, 1:PID, 2:Ambient, 3:Follower)
+					} `json:"dh"`
+					// Add other top-level keys from the firmware config to make parsing robust
+					// We only need 'dh' for this logic, but this prevents unmarshal errors.
+				}
+
+				if err := json.Unmarshal([]byte(configJSON), &fwConfig); err != nil {
+					logWarn("Auto-Enable: Could not parse firmware config: %v", err)
+					return
+				}
+
+				// 3. Determine leader index and check conditions.
+				leaderHeaterIndex := 1 - followerHeaterIndex
+				leaderAscomId := leaderHeaterIndex + 8
+
+				isFollower := fwConfig.DH[followerHeaterIndex].M == 3
+				isLeaderPID := fwConfig.DH[leaderHeaterIndex].M == 1
+
+				if isFollower && isLeaderPID {
+					logInfo("Activating PID Leader (ID %d) for Follower (ID %d) as per proxy configuration.", leaderAscomId, followerId)
+					leaderShortKey := shortSwitchKeyByID[leaderAscomId]
+					leaderCommand := fmt.Sprintf(`{"set":{"%s":1}}`, leaderShortKey)
+					if _, err := sendCommandToDevice(leaderCommand, true, 0); err != nil {
+						logError("Auto-Enable: Failed to send command to enable leader: %v", err)
+					}
+				}
+			}(id)
+		}
+	}
+
+	// --- Auto-Disable PID Follower Logic ---
+	// This logic checks if a switch being turned OFF is a PID Leader,
+	// and if so, it also turns off its Follower.
+	if !state { // Only act when a switch is turned OFF
+		// Check if the switch is one of the heaters (ASCOM ID 8 or 9)
+		if id == 8 || id == 9 {
+			// Run in a separate goroutine to avoid blocking the response to the client.
+			go func(leaderId int) {
+				logDebug("Heater (ID %d) turned off. Checking for auto-disable follower logic.", leaderId)
+
+				// 1. Get the latest firmware config to check modes.
+				configJSON, err := sendCommandToDevice(`{"get":"config"}`, false, 0)
+				if err != nil {
+					logWarn("Auto-Disable: Could not get firmware config: %v", err)
+					return
+				}
+
+				var fwConfig struct {
+					DH []struct {
+						M int `json:"m"`
+					} `json:"dh"`
+				}
+				if err := json.Unmarshal([]byte(configJSON), &fwConfig); err != nil {
+					logWarn("Auto-Disable: Could not parse firmware config: %v", err)
+					return
+				}
+
+				// 2. Determine indices for leader and follower.
+				leaderHeaterIndex := leaderId - 8 // Map ASCOM ID (8,9) to heater index (0,1)
+				followerHeaterIndex := 1 - leaderHeaterIndex
+				followerAscomId := followerHeaterIndex + 8
+
+				isLeaderPID := fwConfig.DH[leaderHeaterIndex].M == 1
+				isFollower := fwConfig.DH[followerHeaterIndex].M == 3
+
+				if isLeaderPID && isFollower {
+					logInfo("Deactivating PID Follower (ID %d) because its Leader (ID %d) was turned off.", followerAscomId, leaderId)
+					followerShortKey := shortSwitchKeyByID[followerAscomId]
+					followerCommand := fmt.Sprintf(`{"set":{"%s":0}}`, followerShortKey)
+					if _, err := sendCommandToDevice(followerCommand, true, 0); err != nil {
+						logError("Auto-Disable: Failed to send command to disable follower: %v", err)
+					}
+				}
+			}(id)
+		}
 	}
 
 	alpacaEmptyResponse(w, r)
