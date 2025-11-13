@@ -282,6 +282,13 @@
                             <small>If checked, the proxy will scan all USB ports to find the device. If unchecked, it will only try to connect to the port name specified above.</small>
                         </div>
                         <div class="form-group">
+                            <label for="proxy-listen-address">Listen Address</label>
+                            <select id="proxy-listen-address">
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                            <small>The network interface the Alpaca server listens on. <b>Requires an application restart to take effect.</b> '127.0.0.1' is local only, '0.0.0.0' is all interfaces.</small>
+                        </div>
+                        <div class="form-group">
                             <label for="proxy-network-port">Network Port</label>
                             <input type="number" id="proxy-network-port" min="1024" max="65535">
                             <small>The port the Alpaca server listens on. <b>Requires an application restart to take effect.</b> Default is 8080.</small>

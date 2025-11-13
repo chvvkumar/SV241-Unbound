@@ -13,6 +13,7 @@ type ProxyConfig struct {
 	SerialPortName         string            `json:"serialPortName"`
 	AutoDetectPort         bool              `json:"autoDetectPort"`
 	NetworkPort            int               `json:"networkPort"`
+	ListenAddress          string            `json:"listenAddress"`
 	LogLevel               string            `json:"logLevel"`
 	SwitchNames            map[string]string `json:"switchNames"`
 	HeaterAutoEnableLeader map[string]bool   `json:"heaterAutoEnableLeader"`
@@ -98,6 +99,10 @@ func Load() error {
 	if proxyConfig.NetworkPort == 0 {
 		proxyConfig.NetworkPort = 8080
 	}
+	if proxyConfig.ListenAddress == "" {
+		logger.Warn("Configuration key 'ListenAddress' not found, using default '127.0.0.1'.")
+		proxyConfig.ListenAddress = "127.0.0.1"
+	}
 	if proxyConfig.LogLevel == "" {
 		logger.Warn("Configuration key 'LogLevel' not found, using default 'INFO'.")
 		proxyConfig.LogLevel = "INFO"
@@ -167,27 +172,48 @@ func Get() *ProxyConfig {
 	return proxyConfig
 }
 
-// GetNetworkPortForDiscovery reads the network port directly from the file.
+// GetSetupURL builds the full URL for the web setup page based on the current config.
+func GetSetupURL() string {
+	conf := Get()
+	host := conf.ListenAddress
+	if host == "0.0.0.0" || host == "" {
+		host = "127.0.0.1"
+	}
+	return fmt.Sprintf("http://%s:%d/setup", host, conf.NetworkPort)
+}
+
+// GetSetupURLFromFile reads the configuration file directly to build the setup URL.
 // This is a special case for the single-instance check, which runs before the main
-// configuration and logging are initialized.
-func GetNetworkPortForDiscovery() int {
+// configuration and logging are initialized. It ensures that a second instance
+// opens the correct URL based on the saved listenAddress.
+func GetSetupURLFromFile() string {
+	const defaultHost = "127.0.0.1"
 	const defaultPort = 8080
 
 	file, err := os.ReadFile(proxyConfigFile)
 	if err != nil {
-		return defaultPort // File not found or other error, use default.
+		// File not found or other error, use failsafe defaults.
+		return fmt.Sprintf("http://%s:%d/setup", defaultHost, defaultPort)
 	}
 
 	var config struct {
-		NetworkPort int `json:"networkPort"`
+		NetworkPort   int    `json:"networkPort"`
+		ListenAddress string `json:"listenAddress"`
 	}
 	if err := json.Unmarshal(file, &config); err != nil {
-		return defaultPort // JSON is corrupt, use default.
+		// JSON is corrupt, use failsafe defaults.
+		return fmt.Sprintf("http://%s:%d/setup", defaultHost, defaultPort)
 	}
 
-	if config.NetworkPort == 0 {
-		return defaultPort
+	host := config.ListenAddress
+	port := config.NetworkPort
+
+	if host == "0.0.0.0" || host == "" {
+		host = defaultHost
+	}
+	if port == 0 {
+		port = defaultPort
 	}
 
-	return config.NetworkPort
+	return fmt.Sprintf("http://%s:%d/setup", host, port)
 }

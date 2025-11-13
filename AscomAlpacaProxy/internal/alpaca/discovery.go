@@ -10,20 +10,23 @@ import (
 // RespondToDiscovery listens for Alpaca discovery packets on UDP port 32227
 // and responds with the server's listening port.
 func RespondToDiscovery() {
-	addr, err := net.ResolveUDPAddr("udp4", "0.0.0.0:32227")
+	listenAddr := config.Get().ListenAddress
+	udpAddress := fmt.Sprintf("%s:32227", listenAddr)
+
+	addr, err := net.ResolveUDPAddr("udp4", udpAddress)
 	if err != nil {
-		logger.Error("Discovery: Could not resolve UDP address: %v", err)
+		logger.Error("Discovery: Could not resolve UDP address '%s': %v", udpAddress, err)
 		return
 	}
 
 	conn, err := net.ListenUDP("udp4", addr)
 	if err != nil {
-		logger.Error("Discovery: Could not listen on UDP port 32227: %v", err)
+		logger.Error("Discovery: Could not listen on UDP address '%s': %v", udpAddress, err)
 		logger.Info("HINT: This may be caused by another Alpaca application running, or a permissions issue.")
 		return
 	}
 	defer conn.Close()
-	logger.Info("Alpaca discovery responder started on UDP port 32227.")
+	logger.Info("Alpaca discovery responder started on UDP address '%s'.", udpAddress)
 
 	discoveryMsg := []byte("alpacadiscovery1")
 	buffer := make([]byte, 1024)

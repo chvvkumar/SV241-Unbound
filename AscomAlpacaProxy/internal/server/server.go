@@ -12,6 +12,7 @@ import (
 
 	"sv241pro-alpaca-proxy/internal/alpaca"
 	"sv241pro-alpaca-proxy/internal/config"
+	"sv241pro-alpaca-proxy/internal/handlers"
 	"sv241pro-alpaca-proxy/internal/logger"
 	"sv241pro-alpaca-proxy/internal/logstream"
 	"sv241pro-alpaca-proxy/internal/serial"
@@ -21,31 +22,19 @@ import (
 func Start(frontendFS fs.FS, appVersion string) {
 	setupRoutes(frontendFS, appVersion)
 
-	const maxPortRetries = 100
 	conf := config.Get()
-	initialPort := conf.NetworkPort
+	addr := fmt.Sprintf("%s:%d", conf.ListenAddress, conf.NetworkPort)
 
-	for i := 0; i < maxPortRetries; i++ {
-		addr := fmt.Sprintf(":%d", conf.NetworkPort)
-		listener, err := net.Listen("tcp", addr)
-
-		if err == nil {
-			logger.Info("Starting Alpaca API server on port %d...", conf.NetworkPort)
-			if conf.NetworkPort != initialPort {
-				logger.Info("Port %d was in use. Using new port %d and saving it.", initialPort, conf.NetworkPort)
-				if err := config.Save(); err != nil {
-					logger.Warn("Failed to save new network port to config file: %v", err)
-				}
-			}
-			if err := http.Serve(listener, nil); err != nil {
-				logger.Fatal("HTTP server failed: %v", err)
-			}
-			return
-		}
-		logger.Warn("Could not bind to port %d (reason: %v). Trying next port...", conf.NetworkPort, err)
-		conf.NetworkPort++
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		logger.Fatal("Could not bind to address '%s' (reason: %v). Please check your configuration.", addr, err)
+		return // Unreachable, but good practice
 	}
-	logger.Fatal("Could not find an open port after %d retries.", maxPortRetries)
+
+	logger.Info("Starting Alpaca API server on %s...", addr)
+	if err := http.Serve(listener, nil); err != nil {
+		logger.Fatal("HTTP server failed: %v", err)
+	}
 }
 
 func setupRoutes(frontendFS fs.FS, appVersion string) {
@@ -76,11 +65,21 @@ func setupRoutes(frontendFS fs.FS, appVersion string) {
 	http.HandleFunc("/api/v1/power/all", handleSetAllPower)
 	http.HandleFunc("/api/v1/command", handleDeviceCommand)
 	http.HandleFunc("/api/v1/firmware/version", handleGetFirmwareVersion)
-	http.HandleFunc("/api/v1/proxy/version", handleGetProxyVersion(appVersion))
-	http.HandleFunc("/api/v1/proxy/config", handleGetProxyConfig)
-	http.HandleFunc("/api/v1/proxy/config/set", handleSetProxyConfig)
 	http.HandleFunc("/api/v1/backup/create", handleCreateBackup)
 	http.HandleFunc("/api/v1/backup/restore", handleRestoreBackup)
+
+	// New settings endpoint combines getting and setting proxy config
+	http.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			// This handler now returns the proxy config AND available IPs
+			handlers.HandleGetSettings(w, r)
+		} else if r.Method == http.MethodPost {
+			// This handler now saves the entire proxy config
+			handlers.HandlePostSettings(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// --- WebSocket ---
 	http.HandleFunc("/ws/logs", logstream.ServeWs)
@@ -255,42 +254,6 @@ func handleGetLiveStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(serial.Conditions.Data)
-}
-
-func handleGetProxyConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config.Get())
-}
-
-func handleSetProxyConfig(w http.ResponseWriter, r *http.Request) {
-	var newProxyConfig config.ProxyConfig
-	if err := json.NewDecoder(r.Body).Decode(&newProxyConfig); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Update the global config by getting a pointer to it
-	conf := config.Get()
-	conf.SerialPortName = newProxyConfig.SerialPortName
-	conf.AutoDetectPort = newProxyConfig.AutoDetectPort
-	conf.NetworkPort = newProxyConfig.NetworkPort
-	conf.SwitchNames = newProxyConfig.SwitchNames
-	conf.LogLevel = newProxyConfig.LogLevel
-	conf.HeaterAutoEnableLeader = newProxyConfig.HeaterAutoEnableLeader
-
-	logger.SetLevelFromString(conf.LogLevel)
-	logger.Info("Log level set to %s", conf.LogLevel)
-
-	if err := config.Save(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Trigger reconnect in a goroutine
-	go serial.Reconnect(conf.SerialPortName)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(conf)
 }
 
 func handleDeviceCommand(w http.ResponseWriter, r *http.Request) {

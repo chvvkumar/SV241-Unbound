@@ -173,51 +173,109 @@
                 }
             }
 
-            async function fetchProxyConfig() {
-                let statusOk = false;
-                try {
-                    const response = await fetch('/api/v1/proxy/config');
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const proxyConf = await response.json();
-                    originalProxyConfig = JSON.parse(JSON.stringify(proxyConf));
-                    
-                    if (proxyConf) {
-                        applyProxyConfig(proxyConf);
-                        statusOk = true;
-                    }
-                    updateConnectionStatus(proxyConf, statusOk);
-                } catch (error) {
-                    console.error('Error fetching proxy config:', error);
-                    updateConnectionStatus(null, false);
-                    const defaultNames = {};
-                    Object.values(switchIDMap).forEach(key => defaultNames[key] = key);
-                    populateSwitchNameInputs(defaultNames);
-                    populatePowerControls(defaultNames);
-                    populateStartupStateLabels(defaultNames);
+            function applyProxyConfig(proxyConf, availableIPs = []) {
+                document.getElementById('proxy-serial-port').value = proxyConf.serialPortName || '';
+                document.getElementById('proxy-auto-detect-port').checked = proxyConf.autoDetectPort;
+                document.getElementById('proxy-serial-port').disabled = proxyConf.autoDetectPort;
+                document.getElementById('proxy-network-port').value = proxyConf.networkPort || 8080;
+                document.getElementById('proxy-log-level').value = proxyConf.logLevel || 'INFO';
+
+                // Populate Listen Address dropdown
+                const listenAddressSelect = document.getElementById('proxy-listen-address');
+                listenAddressSelect.innerHTML = ''; // Clear existing options
+
+                // Add static options that should always be available
+                const staticIPs = ['127.0.0.1', '0.0.0.0'];
+                staticIPs.forEach(ip => {
+                    const option = document.createElement('option');
+                    option.value = ip;
+                    option.textContent = ip;
+                    if (ip === '127.0.0.1') option.textContent += ' (Local Only)';
+                    if (ip === '0.0.0.0') option.textContent += ' (All Interfaces)';
+                    listenAddressSelect.appendChild(option);
+                });
+
+                // Add dynamic IPs from server, avoiding duplicates
+                if (availableIPs) {
+                    availableIPs.forEach(ip => {
+                        if (!staticIPs.includes(ip)) {
+                            const option = document.createElement('option');
+                            option.value = ip;
+                            option.textContent = ip;
+                            listenAddressSelect.appendChild(option);
+                        }
+                    });
                 }
 
-                // This function applies the proxy config to the UI elements.
-                // It's separated so it can be called after the device config is also loaded.
-                function applyProxyConfig(proxyConf) {
-                    document.getElementById('proxy-serial-port').value = proxyConf.serialPortName || '';
-                    document.getElementById('proxy-auto-detect-port').checked = proxyConf.autoDetectPort;
+                // Set the selected value from the config
+                const currentListenAddress = proxyConf.listenAddress || '127.0.0.1';
+                listenAddressSelect.value = currentListenAddress;
 
-                    // Disable serial port input if auto-detect is on
-                    document.getElementById('proxy-serial-port').disabled = proxyConf.autoDetectPort;
+                // If the currently configured address wasn't in the list, add it as an option
+                if (listenAddressSelect.value !== currentListenAddress) {
+                    const option = document.createElement('option');
+                    option.value = currentListenAddress;
+                    option.textContent = currentListenAddress + " (Saved, Not Detected)";
+                    listenAddressSelect.appendChild(option);
+                    listenAddressSelect.value = currentListenAddress;
+                }
 
-                    document.getElementById('proxy-network-port').value = proxyConf.networkPort || 8080;
-                    document.getElementById('proxy-log-level').value = proxyConf.logLevel || 'INFO';
+                if (proxyConf.heaterAutoEnableLeader) {
+                    document.getElementById('heater-0-auto-enable-leader').checked = proxyConf.heaterAutoEnableLeader['pwm1'];
+                    document.getElementById('heater-1-auto-enable-leader').checked = proxyConf.heaterAutoEnableLeader['pwm2'];
+                }
 
-                    if (proxyConf.heaterAutoEnableLeader) {
-                        document.getElementById('heater-0-auto-enable-leader').checked = proxyConf.heaterAutoEnableLeader['pwm1'];
-                        document.getElementById('heater-1-auto-enable-leader').checked = proxyConf.heaterAutoEnableLeader['pwm2'];
+                if (proxyConf.switchNames) {
+                    populateSwitchNameInputs(proxyConf.switchNames);
+                    populatePowerControls(proxyConf.switchNames);
+                    populateStartupStateLabels(proxyConf.switchNames);
+                }
+            }
+
+            async function fetchProxyConfig() {
+                let statusOk = false;
+                let proxyConfForStatus = null;
+                try {
+                    // Fetch from the new, combined settings endpoint
+                    const response = await fetch('/api/v1/settings'); 
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    const settings = await response.json();
+                    const proxyConf = settings.proxy_config;
+                    const availableIPs = settings.available_ips;
+
+                    originalProxyConfig = JSON.parse(JSON.stringify(proxyConf));
+                    proxyConfForStatus = proxyConf;
+                    
+                    if (proxyConf) {
+                        applyProxyConfig(proxyConf, availableIPs);
+                        statusOk = true;
                     }
+                    
+                } catch (error) {
+                    console.error('Error fetching new proxy settings, trying fallback:', error);
+                    // Fallback to old endpoint if new one fails for graceful degradation
+                    try {
+                        const fallbackResponse = await fetch('/api/v1/proxy/config');
+                        if (!fallbackResponse.ok) throw new Error(`Fallback HTTP error! status: ${fallbackResponse.status}`);
+                        const proxyConf = await fallbackResponse.json();
+                        originalProxyConfig = JSON.parse(JSON.stringify(proxyConf));
+                        proxyConfForStatus = proxyConf;
 
-                    if (proxyConf.switchNames) {
-                        populateSwitchNameInputs(proxyConf.switchNames);
-                        populatePowerControls(proxyConf.switchNames);
-                        populateStartupStateLabels(proxyConf.switchNames);
+                        if (proxyConf) {
+                            applyProxyConfig(proxyConf); // Call without IPs
+                            statusOk = true;
+                        }
+                    } catch (fallbackError) {
+                        console.error('Error fetching proxy config (fallback):', fallbackError);
+                        const defaultNames = {};
+                        Object.values(switchIDMap).forEach(key => defaultNames[key] = key);
+                        populateSwitchNameInputs(defaultNames);
+                        populatePowerControls(defaultNames);
+                        populateStartupStateLabels(defaultNames);
                     }
+                } finally {
+                    updateConnectionStatus(proxyConfForStatus, statusOk);
                 }
             }
 
@@ -417,6 +475,7 @@
 
             async function saveProxyConfig(showAlert = true) {
                 const newProxyConfig = { 
+                    listenAddress: document.getElementById('proxy-listen-address').value,
                     serialPortName: document.getElementById('proxy-serial-port').value.trim(),
                     autoDetectPort: document.getElementById('proxy-auto-detect-port').checked,
                     networkPort: parseInt(document.getElementById('proxy-network-port').value, 10) || 8080,
@@ -431,10 +490,10 @@
                     newProxyConfig.switchNames[input.dataset.key] = input.value.trim();
                 });
                 
-
                 try {
                     deviceResponseElement.textContent = "Saving proxy settings...";
-                    const response = await fetch('/api/v1/proxy/config/set', {
+                    // Post to the new endpoint. The body is just the config object.
+                    const response = await fetch('/api/v1/settings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newProxyConfig)
@@ -446,7 +505,7 @@
                         alert("Proxy settings saved. Some changes may require an application restart.");
                     }
                     resetUnsavedIndicators();
-                    fetchProxyConfig(); // Re-fetch to update originalProxyConfig
+                    fetchProxyConfig(); // Re-fetch to update originalProxyConfig and UI
                 } catch (error) {
                     console.error('Error saving proxy config:', error);
                     deviceResponseElement.textContent = `Error saving proxy config: ${error.message}`;

@@ -48,8 +48,8 @@ func OnReady(onStart func(), iconData []byte) {
 		for {
 			select {
 			case <-mSetup.ClickedCh:
-				port := config.Get().NetworkPort
-				openBrowser(fmt.Sprintf("http://localhost:%d/setup", port))
+				url := config.GetSetupURL()
+				openBrowser(url)
 			case <-mQuit.ClickedCh:
 				systray.Quit()
 				return
@@ -84,8 +84,7 @@ func checkSingleInstance() {
 	}
 
 	// Another instance is running. Open the setup page and exit.
-	port := config.GetNetworkPortForDiscovery()
-	url := fmt.Sprintf("http://localhost:%d/setup", port)
+	url := config.GetSetupURLFromFile()
 	openBrowser(url)
 
 	if handle != 0 {

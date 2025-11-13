@@ -57,8 +57,9 @@ try {
     exit
 }
 
-# --- 3. Read Proxy Config to find Network Port ---
+# --- 3. Read Proxy Config to find Network Port and IP Address ---
 $DefaultPort = 8080
+$IP = "localhost"
 $ProxyConfigPath = Join-Path $env:APPDATA "SV241AlpacaProxy\proxy_config.json"
 
 if (Test-Path $ProxyConfigPath) {
@@ -66,13 +67,16 @@ if (Test-Path $ProxyConfigPath) {
         $ProxyConfig = Get-Content -Raw -Path $ProxyConfigPath | ConvertFrom-Json
         if ($ProxyConfig.networkPort) {
             $DefaultPort = $ProxyConfig.networkPort
-            Write-Host "Found proxy running on port $DefaultPort." -ForegroundColor Cyan
         }
+        if ($ProxyConfig.listenAddress) {
+            $IP = $ProxyConfig.listenAddress
+        }
+        Write-Host "Found proxy configuration. Using IP '$IP' and Port '$DefaultPort'." -ForegroundColor Cyan
     } catch {
-        Write-Host "Warning: Could not read or parse '$ProxyConfigPath'. Using default port $DefaultPort." -ForegroundColor Yellow
+        Write-Host "Warning: Could not read or parse '$ProxyConfigPath'. Using defaults." -ForegroundColor Yellow
     }
 } else {
-    Write-Host "Proxy config file not found. Using default port $DefaultPort." -ForegroundColor Cyan
+    Write-Host "Proxy config file not found. Using default IP '$IP' and Port '$DefaultPort'." -ForegroundColor Cyan
 }
 
 
@@ -95,20 +99,9 @@ if ([string]::IsNullOrWhiteSpace($DisplayName)) {
     $DisplayName = $DefaultName
 }
 
-# --- Network Port ---
-$PortStr = Read-Host "Enter the Alpaca network port [$DefaultPort]"
-if ([string]::IsNullOrWhiteSpace($PortStr)) {
-    $Port = $DefaultPort
-} else {
-    if (-Not ([int]::TryParse($PortStr, [ref]$Port))) {
-        $Port = $DefaultPort
-        Write-Host "Invalid input. Using default port $Port." -ForegroundColor Yellow
-    }
-}
-
 # --- 5. Define Remaining Parameters and Create Driver ---
 $DeviceNum = 0
-$IP = "localhost"
+$Port = $DefaultPort # Use the auto-detected port
 $UniqueID = [guid]::NewGuid().ToString()
 
 Write-Host "------------------------------------------------------------------" -ForegroundColor White

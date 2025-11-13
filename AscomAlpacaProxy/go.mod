@@ -4,6 +4,7 @@ go 1.21.0
 
 require (
 	fyne.io/systray v1.11.0
+	github.com/gorilla/websocket v1.5.3
 	go.bug.st/serial v1.6.0
 )
 
