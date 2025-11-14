@@ -27,6 +27,11 @@ extern SensorValues sensor_cache;
 // Mutex to protect access to the sensor_cache
 extern SemaphoreHandle_t sensor_cache_mutex;
 
+// Global sensor availability flags
+extern bool is_ina219_available;
+extern bool is_sht40_available;
+extern bool is_ds18b20_available;
+
 void setup_sensors();
 
 // This function should be called continuously in the main loop.

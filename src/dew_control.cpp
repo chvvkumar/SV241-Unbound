@@ -136,6 +136,27 @@ void dew_control_task(void *pvParameters) {
             heater_config = config.dew_heaters[i];
             xSemaphoreGive(config_mutex);
 
+            // --- Safety Check for Automatic Modes ---
+            // Before running automatic modes, ensure the required sensor data is valid.
+            bool sensor_data_valid = true;
+            if (heater_config.mode == 1) { // PID Mode
+                if (isnan(dew_point) || isnan(sensor_values.ds18b20_temperature)) {
+                    sensor_data_valid = false;
+                }
+            } else if (heater_config.mode == 2) { // Ambient Tracking Mode
+                if (isnan(dew_point) || isnan(sensor_values.sht_temperature)) {
+                    sensor_data_valid = false;
+                }
+            }
+
+            if (!sensor_data_valid) {
+                // A sensor required for this automatic mode is disconnected or invalid.
+                // Turn off the heater as a safety measure.
+                heater_power[i] = 0;
+                ledcWrite(HEATER_LEDC_CHANNELS[i], 0);
+                continue; // Skip to the next heater
+            }
+            // --- End Safety Check ---
 
             switch (heater_config.mode) {
                 case 0: { // Manual Mode

@@ -25,6 +25,11 @@ SensorValues sensor_cache;
 // --- Mutex definition ---
 SemaphoreHandle_t sensor_cache_mutex;
 
+// --- Global sensor availability flags ---
+bool is_ina219_available = false;
+bool is_sht40_available = false;
+bool is_ds18b20_available = false;
+
 // --- Status flag for SHT40 drying process ---
 static volatile bool is_sht40_drying = false;
 
@@ -89,36 +94,50 @@ static float calculate_median(float arr[], int count) {
 }
 
 void setup_sensors() {
+  // Initialize all sensor values to NAN to indicate they are not yet valid
+  sensor_cache.ina_voltage = NAN;
+  sensor_cache.ina_current = NAN;
+  sensor_cache.ina_power = NAN;
+  sensor_cache.sht_temperature = NAN;
+  sensor_cache.sht_humidity = NAN;
+  sensor_cache.sht_dew_point = NAN;
+  sensor_cache.ds18b20_temperature = NAN;
+
   Wire.begin(I2C_SDA, I2C_SCL);
-  if (!ina219.begin()) {
-    // The calling function in main.cpp will be responsible for logging errors.
-    while (1); 
+
+  is_ina219_available = ina219.begin();
+  if (is_ina219_available) {
+    // The Adafruit library's begin() function calls setCalibration_32V_2A(), which assumes a 0.1 Ohm shunt.
+    // We must overwrite this with our custom calibration for the 0.005 Ohm shunt.
+    uint16_t config_value = INA219_CONFIG_BVOLTAGERANGE_32V |
+                      INA219_CONFIG_GAIN_8_320MV | INA219_CONFIG_BADCRES_12BIT |
+                      INA219_CONFIG_SADCRES_12BIT_1S_532US |
+                      INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
+
+    // Manually write to the INA219 registers via I2C.
+    Wire.beginTransmission(INA219_ADDR);
+    Wire.write(INA219_REG_CONFIG);
+    Wire.write((config_value >> 8) & 0xFF); Wire.write(config_value & 0xFF);
+    Wire.write(INA219_REG_CALIBRATION);
+    Wire.write((INA219_CALIB_VALUE >> 8) & 0xFF); Wire.write(INA219_CALIB_VALUE & 0xFF);
+    Wire.endTransmission();
+  } else {
+    Serial.println("{\"error\":\"INA219 sensor not found\"}");
   }
 
-  // The Adafruit library's begin() function calls setCalibration_32V_2A(), which assumes a 0.1 Ohm shunt.
-  // We must overwrite this with our custom calibration for the 0.005 Ohm shunt.
-  uint16_t config_value = INA219_CONFIG_BVOLTAGERANGE_32V |
-                    INA219_CONFIG_GAIN_8_320MV | INA219_CONFIG_BADCRES_12BIT |
-                    INA219_CONFIG_SADCRES_12BIT_1S_532US |
-                    INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
-
-  // Manually write to the INA219 registers via I2C.
-  Wire.beginTransmission(INA219_ADDR);
-  Wire.write(INA219_REG_CONFIG);
-  Wire.write((config_value >> 8) & 0xFF); Wire.write(config_value & 0xFF);
-  Wire.write(INA219_REG_CALIBRATION);
-  Wire.write((INA219_CALIB_VALUE >> 8) & 0xFF); Wire.write(INA219_CALIB_VALUE & 0xFF);
-  Wire.endTransmission();
-
-  if (!sht40.begin()) { 
-    while (1); 
+  is_sht40_available = sht40.begin();
+  if (is_sht40_available) {
+    sht40.setPrecision(SHT4X_HIGH_PRECISION);
+    sht40.setHeater(SHT4X_NO_HEATER);
+  } else {
+    Serial.println("{\"error\":\"SHT40 sensor not found\"}");
   }
-  sht40.setPrecision(SHT4X_HIGH_PRECISION);
-  sht40.setHeater(SHT4X_NO_HEATER);
+
   dallas_sensors.begin();
-  if (dallas_sensors.getDeviceCount() == 0) { 
-    // Error can be handled by the main setup function if needed.
-  } 
+  is_ds18b20_available = (dallas_sensors.getDeviceCount() > 0);
+  if (!is_ds18b20_available) {
+    Serial.println("{\"error\":\"DS18B20 sensor not found\"}");
+  }
 }
 
 void update_sensor_cache() {
@@ -139,7 +158,7 @@ void update_sensor_cache() {
   xSemaphoreGive(config_mutex);
 
   // --- INA219 Update ---
-  if (current_millis - last_ina219_update >= ina219_interval) {
+  if (is_ina219_available && (current_millis - last_ina219_update >= ina219_interval)) {
     last_ina219_update = current_millis;
     float raw_bus_voltage = ina219.getBusVoltage_V();
     
@@ -177,73 +196,78 @@ void update_sensor_cache() {
   }
 
   // --- SHT40 Update ---
-  if (!is_sht40_drying && (current_millis - last_sht40_update >= sht40_interval)) {
+  if (is_sht40_available && !is_sht40_drying && (current_millis - last_sht40_update >= sht40_interval)) {
     last_sht40_update = current_millis;
     sensors_event_t humidity, temp;
-    sht40.getEvent(&humidity, &temp);
-    float final_sht40_temp = temp.temperature;
-    float final_sht40_humidity = humidity.relative_humidity;
+    if (sht40.getEvent(&humidity, &temp)) {
+      float final_sht40_temp = temp.temperature;
+      float final_sht40_humidity = humidity.relative_humidity;
 
-    // Averaging for Temperature
-    int avg_count_t = avg_counts.sht40_temp;
-    if (avg_count_t > 1 && avg_count_t <= MAX_SENSOR_AVG_COUNT) {
-        sht40_temp_readings[sht40_temp_index] = temp.temperature;
-        sht40_temp_index = (sht40_temp_index + 1) % avg_count_t;
-        if (sht40_readings_count < avg_count_t) { sht40_readings_count++; }
-        final_sht40_temp = calculate_median(sht40_temp_readings, sht40_readings_count);
-    }
-
-    // Averaging for Humidity
-    int avg_count_h = avg_counts.sht40_humidity;
-    if (avg_count_h > 1 && avg_count_h <= MAX_SENSOR_AVG_COUNT) {
-        sht40_humidity_readings[sht40_humidity_index] = humidity.relative_humidity;
-        sht40_humidity_index = (sht40_humidity_index + 1) % avg_count_h;
-        if (sht40_humidity_readings_count < avg_count_h) { sht40_humidity_readings_count++; }
-        final_sht40_humidity = calculate_median(sht40_humidity_readings, sht40_humidity_readings_count);
-    }
-
-    // --- Auto-Dry Logic ---
-    if (auto_dry_config.enabled) {
-        if (final_sht40_humidity >= auto_dry_config.humidity_threshold) {
-            // Humidity is above the trigger threshold
-            if (high_humidity_start_time == 0) {
-                // If timer is not running, start it
-                high_humidity_start_time = current_millis;
-            } else {
-                // If timer is running, check if the duration has been exceeded
-                if (current_millis - high_humidity_start_time >= auto_dry_config.trigger_duration_ms) {
-                    // Duration exceeded, trigger the drying cycle
-                    dry_sht40_sensor();
-                    // Reset the timer to prevent immediate re-triggering
-                    high_humidity_start_time = 0;
-                }
-            }
-        } else {
-            // Humidity is below the threshold, so reset the timer
-            high_humidity_start_time = 0;
-        }
-    }
-
-    if(xSemaphoreTake(sensor_cache_mutex, (TickType_t)10) == pdTRUE) {
-      sensor_cache.sht_temperature = final_sht40_temp + offsets.sht40_temp;
-      sensor_cache.sht_humidity = final_sht40_humidity + offsets.sht40_humidity;
-
-      // Magnus formula for dew point calculation
-      float temp_calc = sensor_cache.sht_temperature;
-      float hum_calc = sensor_cache.sht_humidity;
-      if (hum_calc > 0) { // Avoid log(0) which is -inf
-        float gamma = log(hum_calc / 100.0) + (17.62 * temp_calc) / (243.12 + temp_calc);
-        sensor_cache.sht_dew_point = (243.12 * gamma) / (17.62 - gamma);
-      } else {
-        sensor_cache.sht_dew_point = -273.15; // Or some other indicator for invalid dew point
+      // Averaging for Temperature
+      int avg_count_t = avg_counts.sht40_temp;
+      if (avg_count_t > 1 && avg_count_t <= MAX_SENSOR_AVG_COUNT) {
+          sht40_temp_readings[sht40_temp_index] = temp.temperature;
+          sht40_temp_index = (sht40_temp_index + 1) % avg_count_t;
+          if (sht40_readings_count < avg_count_t) { sht40_readings_count++; }
+          final_sht40_temp = calculate_median(sht40_temp_readings, sht40_readings_count);
       }
 
-      xSemaphoreGive(sensor_cache_mutex);
+      // Averaging for Humidity
+      int avg_count_h = avg_counts.sht40_humidity;
+      if (avg_count_h > 1 && avg_count_h <= MAX_SENSOR_AVG_COUNT) {
+          sht40_humidity_readings[sht40_humidity_index] = humidity.relative_humidity;
+          sht40_humidity_index = (sht40_humidity_index + 1) % avg_count_h;
+          if (sht40_humidity_readings_count < avg_count_h) { sht40_humidity_readings_count++; }
+          final_sht40_humidity = calculate_median(sht40_humidity_readings, sht40_humidity_readings_count);
+      }
+
+      // --- Auto-Dry Logic ---
+      if (auto_dry_config.enabled) {
+          if (final_sht40_humidity >= auto_dry_config.humidity_threshold) {
+              if (high_humidity_start_time == 0) {
+                  high_humidity_start_time = current_millis;
+              } else {
+                  if (current_millis - high_humidity_start_time >= auto_dry_config.trigger_duration_ms) {
+                      dry_sht40_sensor();
+                      high_humidity_start_time = 0;
+                  }
+              }
+          } else {
+              high_humidity_start_time = 0;
+          }
+      }
+
+      if(xSemaphoreTake(sensor_cache_mutex, (TickType_t)10) == pdTRUE) {
+        sensor_cache.sht_temperature = final_sht40_temp + offsets.sht40_temp;
+        sensor_cache.sht_humidity = final_sht40_humidity + offsets.sht40_humidity;
+
+        // Magnus formula for dew point calculation
+        float temp_calc = sensor_cache.sht_temperature;
+        float hum_calc = sensor_cache.sht_humidity;
+        if (hum_calc > 0) { // Avoid log(0) which is -inf
+          float gamma = log(hum_calc / 100.0) + (17.62 * temp_calc) / (243.12 + temp_calc);
+          sensor_cache.sht_dew_point = (243.12 * gamma) / (17.62 - gamma);
+        } else {
+          sensor_cache.sht_dew_point = NAN;
+        }
+
+        xSemaphoreGive(sensor_cache_mutex);
+      }
+    } else {
+      // Sensor read failed, assume it's disconnected
+      is_sht40_available = false;
+      Serial.println("{\"error\":\"SHT40 sensor disconnected\"}");
+      if(xSemaphoreTake(sensor_cache_mutex, (TickType_t)10) == pdTRUE) {
+        sensor_cache.sht_temperature = NAN;
+        sensor_cache.sht_humidity = NAN;
+        sensor_cache.sht_dew_point = NAN;
+        xSemaphoreGive(sensor_cache_mutex);
+      }
     }
   }
 
   // --- DS18B20 Update ---
-  if (current_millis - last_ds18b20_update >= ds18b20_interval) {
+  if (is_ds18b20_available && (current_millis - last_ds18b20_update >= ds18b20_interval)) {
     last_ds18b20_update = current_millis;
     dallas_sensors.requestTemperatures(); 
     float tempC = dallas_sensors.getTempCByIndex(0);
@@ -261,6 +285,12 @@ void update_sensor_cache() {
 
       if(xSemaphoreTake(sensor_cache_mutex, (TickType_t)10) == pdTRUE) {
         sensor_cache.ds18b20_temperature = final_ds18b20_temp + offsets.ds18b20_temp;
+        xSemaphoreGive(sensor_cache_mutex);
+      }
+    } else {
+      // Device disconnected
+      if(xSemaphoreTake(sensor_cache_mutex, (TickType_t)10) == pdTRUE) {
+        sensor_cache.ds18b20_temperature = NAN;
         xSemaphoreGive(sensor_cache_mutex);
       }
     }
@@ -316,13 +346,28 @@ void get_sensor_values_json(JsonDocument& doc) {
   SensorValues values;
   get_sensor_values(values);
 
-  doc["v"] = round(values.ina_voltage * 10) / 10.0;
-  doc["i"] = round(values.ina_current * 10) / 10.0;
-  doc["p"] = round(values.ina_power * 10) / 10.0;
-  doc["t_amb"] = round(values.sht_temperature * 10) / 10.0;
-  doc["h_amb"] = round(values.sht_humidity * 10) / 10.0;
-  doc["d"] = round(values.sht_dew_point * 10) / 10.0;
-  doc["t_lens"] = round(values.ds18b20_temperature * 10) / 10.0;
+  if (!isnan(values.ina_voltage)) {
+    doc["v"] = round(values.ina_voltage * 10) / 10.0;
+  }
+  if (!isnan(values.ina_current)) {
+    doc["i"] = round(values.ina_current * 10) / 10.0;
+  }
+  if (!isnan(values.ina_power)) {
+    doc["p"] = round(values.ina_power * 10) / 10.0;
+  }
+  if (!isnan(values.sht_temperature)) {
+    doc["t_amb"] = round(values.sht_temperature * 10) / 10.0;
+  }
+  if (!isnan(values.sht_humidity)) {
+    doc["h_amb"] = round(values.sht_humidity * 10) / 10.0;
+  }
+  if (!isnan(values.sht_dew_point)) {
+    doc["d"] = round(values.sht_dew_point * 10) / 10.0;
+  }
+  if (!isnan(values.ds18b20_temperature)) {
+    doc["t_lens"] = round(values.ds18b20_temperature * 10) / 10.0;
+  }
+  
   doc["pwm1"] = get_heater_power(0);
   doc["pwm2"] = get_heater_power(1);
 
