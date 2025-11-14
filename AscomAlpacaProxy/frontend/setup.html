@@ -265,6 +265,29 @@
                     </div>
                 </div>
 
+                <!-- Auto-Dry Settings -->
+                <div class="config-group" id="auto-dry-settings">
+                    <div class="collapsible-header">
+                        <h3>SHT40 Auto-Drying</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <small>Activates the SHT40 sensor's internal heater if humidity stays above a threshold for a set duration to remove condensation.</small>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="auto-dry-enabled"> Enable Auto-Drying Feature</label>
+                        </div>
+                        <div class="form-group">
+                            <label for="auto-dry-humidity-threshold">Humidity Threshold (%)</label>
+                            <input type="number" id="auto-dry-humidity-threshold" min="50" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="auto-dry-trigger-duration">Trigger Duration (seconds, max 600)</label>
+                            <input type="number" id="auto-dry-trigger-duration" min="10" max="600">
+                        </div>
+                        <button class="save-config-button">Save Auto-Drying Settings</button>
+                    </div>
+                </div>
+
                 <!-- Proxy Connection Settings -->
                 <div class="config-group">
                     <div class="collapsible-header">
@@ -304,6 +327,19 @@
                             <small>Controls the verbosity of the log file. 'Debug' is very verbose, 'Info' is standard.</small>
                         </div>
                         <button id="save-proxy-config-button">Save Proxy Connection</button>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <div class="collapsible-header">
+                        <h3>Manual Actions</h3>
+                        <span class="toggle-icon"></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <p>Manually trigger specific device actions.</p>
+                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                            <button id="manual-dry-sensor-button">Trigger Sensor Drying Cycle</button>
+                        </div>
                     </div>
                 </div>
 

@@ -163,6 +163,12 @@
                             updateHeaterModeView(i);
                         });
                     }
+
+                    if (config.ad) { // auto_dry -> ad
+                        document.getElementById('auto-dry-enabled').checked = config.ad.en === 1;
+                        document.getElementById('auto-dry-humidity-threshold').value = config.ad.ht ?? 95;
+                        document.getElementById('auto-dry-trigger-duration').value = config.ad.td ?? 180;
+                    }
                     
                     deviceResponseElement.textContent = "Configuration loaded successfully.";
                     return true;
@@ -518,6 +524,62 @@
                 document.getElementById('adj-voltage').closest('.collapsible-content').querySelector('.save-config-button').addEventListener('click', saveAdjustableVoltagePreset);
                 document.querySelector('#dew-heater-settings .collapsible-content > .save-config-button').addEventListener('click', saveDewHeaterSettings);
                 document.querySelector('#sensor-settings-group .collapsible-content > .save-config-button').addEventListener('click', saveSensorSettings);
+                document.querySelector('#auto-dry-settings .collapsible-content > .save-config-button').addEventListener('click', saveAutoDryingSettings);
+            }
+
+            async function saveAutoDryingSettings() {
+                const newConfig = {
+                    ad: { // auto_dry
+                        en: document.getElementById('auto-dry-enabled').checked,
+                        ht: parseInt(document.getElementById('auto-dry-humidity-threshold').value, 10),
+                        td: parseInt(document.getElementById('auto-dry-trigger-duration').value, 10)
+                    }
+                };
+
+                try {
+                    if (connectionIndicator.className !== 'connected') {
+                        alert('Cannot save device configuration: Device is not connected.');
+                        return;
+                    }
+                    deviceResponseElement.textContent = "Saving auto-drying settings...";
+                    const response = await fetch('/api/v1/config/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newConfig)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    deviceResponseElement.textContent = "Auto-drying settings saved successfully!";
+                    alert('Auto-drying settings saved successfully!');
+                    resetUnsavedIndicators();
+                    fetchConfig();
+                } catch (error) {
+                    console.error('Error saving auto-drying settings:', error);
+                    deviceResponseElement.textContent = `Error saving auto-drying settings: ${error.message}`;
+                    alert('Error saving auto-drying settings.');
+                }
+            }
+
+            async function triggerManualDrySensor() {
+                if (!confirm('This will activate the sensor heater for a short period, temporarily affecting ambient readings. Proceed?')) return;
+                try {
+                    deviceResponseElement.textContent = "Sending sensor drying command...";
+                    const response = await fetch('/api/v1/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: 'dry_sensor' })
+                    });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Server responded with ${response.status}: ${errorText}`);
+                    }
+                    const result = await response.json();
+                    deviceResponseElement.textContent = `Sensor drying cycle initiated. Device response: ${result.status || 'OK'}`;
+                    alert('Sensor drying cycle initiated successfully.');
+                } catch (error) {
+                    deviceResponseElement.textContent = `Error sending command: ${error.message}`;
+                    alert(`Error sending command: ${error.message}`);
+                }
             }
 
             // --- Power Control ---
@@ -830,6 +892,7 @@
             if (backupButton) backupButton.addEventListener('click', createBackup);
             if (restoreButton) restoreButton.addEventListener('click', triggerRestore);
             if (restoreFileInput) restoreFileInput.addEventListener('change', handleRestoreFile);
+            document.getElementById('manual-dry-sensor-button').addEventListener('click', triggerManualDrySensor);
 
             setupSaveButtons();
         });

@@ -264,23 +264,43 @@ func handleDeviceCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	var js json.RawMessage
-	if json.Unmarshal(body, &js) != nil {
-		http.Error(w, "Invalid JSON in request body", http.StatusBadRequest)
+	// We need to check the command type to see if we should wait for a response.
+	var commandPayload struct {
+		Command string `json:"command"`
+	}
+	// We ignore the error here because the body might be a different type of command JSON
+	// and we want to handle those generically.
+	json.Unmarshal(body, &commandPayload)
+
+	commandJSON := string(body)
+
+	// Fire-and-forget commands
+	if commandPayload.Command == "reboot" || commandPayload.Command == "factory_reset" {
+		logger.Info("Received command '%s' from web UI. Sending to device.", commandJSON)
+		serial.SendCommand(commandJSON, true, 0) // Don't wait for response
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":"Command sent successfully"}`) // Return valid JSON
 		return
 	}
-	command := string(body)
 
-	if command == `{"command":"reboot"}` || command == `{"command":"factory_reset"}` {
-		logger.Info("Received command '%s' from web UI. Sending to device.", command)
-		// The serial package will handle the disconnect
-		serial.SendCommand(command, true, 0)
+	// For all other commands, send and wait for a response.
+	if commandPayload.Command == "dry_sensor" {
+		logger.Info("Received command '%s' from web UI. Sending to device.", commandJSON)
 	} else {
-		logger.Debug("Received generic command from web UI: %s", command)
-		serial.SendCommand(command, true, 0)
+		logger.Debug("Received generic command from web UI: %s", commandJSON)
 	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Command sent successfully.")
+
+	// Use a timeout that's appropriate for commands that might take a moment.
+	resp, err := serial.SendCommand(commandJSON, true, 5*time.Second)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to send command to device: %v", err), http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	// The device response is expected to be JSON, so we can just pass it through.
+	fmt.Fprint(w, resp)
 }
 
 func handleGetFirmwareVersion(w http.ResponseWriter, r *http.Request) {
