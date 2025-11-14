@@ -66,6 +66,13 @@ struct DewHeaterConfig {
     float pid_sync_factor;
 };
 
+// Configuration for the SHT40 automatic drying feature
+struct Sht40AutoDryConfig {
+    bool enabled;                           // Enables or disables the automatic drying feature
+    float humidity_threshold;               // Humidity threshold (in %) to trigger the timer
+    unsigned long trigger_duration_ms;      // Duration (in ms) the threshold must be exceeded to start drying
+};
+
 
 // Main configuration struct
 struct Config {
@@ -74,6 +81,7 @@ struct Config {
     PowerStartupStates power_startup_states;
     AveragingCounts averaging_counts;
     float adj_conv_preset_v;
+    Sht40AutoDryConfig sht40_auto_dry;
     DewHeaterConfig dew_heaters[MAX_DEW_HEATERS];
 };
 

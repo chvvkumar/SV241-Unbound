@@ -18,6 +18,9 @@ void populateDefaultConfig() {
     config.averaging_counts = {5, 5, 5, 5, 5};
     config.adj_conv_preset_v = 0.0f;
 
+    // Default settings for SHT40 auto-dry feature
+    config.sht40_auto_dry = {true, 99.0f, 300000}; // enabled, 99.0% threshold, 5 minutes duration
+
     for (int i = 0; i < MAX_DEW_HEATERS; i++) {
         createDefaultDewHeaterConfig(i);
     }
@@ -163,6 +166,13 @@ void serializeConfig(JsonDocument& doc) {
 
     doc["av"] = config.adj_conv_preset_v;
 
+    JsonObject auto_dry_obj = doc["ad"].to<JsonObject>();
+    auto_dry_obj["en"] = config.sht40_auto_dry.enabled;
+    auto_dry_obj["en"] = (int)config.sht40_auto_dry.enabled;
+    auto_dry_obj["ht"] = config.sht40_auto_dry.humidity_threshold;
+    auto_dry_obj["td"] = config.sht40_auto_dry.trigger_duration_ms / 1000; // Convert from ms to seconds for user
+
+
     JsonArray dew_heaters_arr = doc["dh"].to<JsonArray>();
     for (int i = 0; i < MAX_DEW_HEATERS; i++) {
         JsonObject heater_obj = dew_heaters_arr.add<JsonObject>();
@@ -222,6 +232,20 @@ void updateConfig(const JsonObject& doc) {
     if (!doc["av"].isNull()) {
         config.adj_conv_preset_v = doc["av"] | config.adj_conv_preset_v;
     }
+
+    if (!doc["ad"].isNull()) {
+        JsonObjectConst auto_dry_obj = doc["ad"];
+        config.sht40_auto_dry.enabled = auto_dry_obj["en"] | config.sht40_auto_dry.enabled;
+        config.sht40_auto_dry.humidity_threshold = auto_dry_obj["ht"] | config.sht40_auto_dry.humidity_threshold;
+        if (!auto_dry_obj["td"].isNull()) {
+            unsigned long duration_sec = auto_dry_obj["td"].as<unsigned long>();
+            if (duration_sec > 600) {
+                duration_sec = 600; // Cap at 600 seconds (10 minutes)
+            }
+            config.sht40_auto_dry.trigger_duration_ms = duration_sec * 1000; // Convert from seconds to ms for internal use
+        }
+    }
+
 
     JsonArrayConst dew_heaters_arr = doc["dh"];
     if (!dew_heaters_arr.isNull()) {

@@ -81,6 +81,10 @@ void serial_command_task(void *pvParameters) {
             xSemaphoreGive(config_mutex);
             delay(100);
             ESP.restart();
+          } else if (doc["command"].is<const char*>() && strcmp(doc["command"], "dry_sensor") == 0) {
+            // This is a blocking call, so the serial task will be busy until it's done.
+            // This is acceptable for a maintenance command.
+            dry_sht40_sensor();
           } else if (doc["get"].is<const char*>() && strcmp(doc["get"], "status") == 0) {
             String output_buffer;
             JsonDocument status_doc;

@@ -126,6 +126,7 @@ For numerical parameters without explicit ranges, typical values are expected. R
 | `ps` | **P**ower **S**tartup: Defines the on/off state of outputs at boot. | `object` |
 | `ac` | **A**veraging **C**ounts: Controls the samples for the median filter. | `object` |
 | `av` | **A**djustable **V**oltage: Sets the preset voltage for the converter. | `float` |
+| `ad` | **A**uto **D**ry: Configures the automatic sensor drying feature. | `object` |
 | `dh` | **D**ew **H**eaters: Configures the two dew heaters. | `array` |
 
 ---
@@ -162,6 +163,14 @@ For numerical parameters without explicit ranges, typical values are expected. R
 | `dt` | Sample count for DS18B20 temperature | `int` |
 | `iv` | Sample count for INA219 voltage | `int` |
 | `ic` | Sample count for INA219 current | `int` |
+
+#### `ad` (Auto Dry)
+| Sub-Key | Description | Value Type |
+|:---|:------------------------------------------------------------------------------------------------|:---------------|
+| `en` | **En**able the auto-dry feature (`true`/`false`). | `boolean` |
+| `ht` | **H**umidity **T**hreshold: The humidity (%) above which the trigger timer starts (e.g., `99.0`). | `float` |
+| `td` | **T**rigger **D**uration: The time in **seconds** the humidity must stay above the threshold to trigger the heater (e.g., `300` for 5 minutes). | `unsigned long`|
+
 
 ---
 

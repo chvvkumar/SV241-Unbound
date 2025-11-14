@@ -39,4 +39,7 @@ void get_sensor_values(SensorValues& values_copy);
 // Prints all current values from the cache in JSON format.
 void get_sensor_values_json(JsonDocument& doc);
 
+// Triggers the SHT40 internal heater to dry the sensor.
+void dry_sht40_sensor();
+
 #endif // SENSORS_H

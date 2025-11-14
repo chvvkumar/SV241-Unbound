@@ -25,6 +25,9 @@ SensorValues sensor_cache;
 // --- Mutex definition ---
 SemaphoreHandle_t sensor_cache_mutex;
 
+// --- Status flag for SHT40 drying process ---
+static volatile bool is_sht40_drying = false;
+
 // Sensor Objects
 Adafruit_INA219 ina219(INA219_ADDR);
 Adafruit_SHT4x sht40 = Adafruit_SHT4x();
@@ -35,6 +38,9 @@ DallasTemperature dallas_sensors(&oneWire);
 static unsigned long last_ina219_update = 0;
 static unsigned long last_sht40_update = 0;
 static unsigned long last_ds18b20_update = 0;
+
+// --- Auto-dry state ---
+static unsigned long high_humidity_start_time = 0; // 0 means timer is not running
 
 // --- Filter buffers and indices ---
 // Arrays are now sized to a fixed maximum. The actual count used is from the config.
@@ -122,12 +128,14 @@ void update_sensor_cache() {
   unsigned long ina219_interval, sht40_interval, ds18b20_interval;
   AveragingCounts avg_counts;
   SensorOffsets offsets;
+  Sht40AutoDryConfig auto_dry_config;
   xSemaphoreTake(config_mutex, portMAX_DELAY);
   ina219_interval = config.update_intervals_ms.ina219;
   sht40_interval = config.update_intervals_ms.sht40;
   ds18b20_interval = config.update_intervals_ms.ds18b20;
   avg_counts = config.averaging_counts;
   offsets = config.sensor_offsets;
+  auto_dry_config = config.sht40_auto_dry;
   xSemaphoreGive(config_mutex);
 
   // --- INA219 Update ---
@@ -169,7 +177,7 @@ void update_sensor_cache() {
   }
 
   // --- SHT40 Update ---
-  if (current_millis - last_sht40_update >= sht40_interval) {
+  if (!is_sht40_drying && (current_millis - last_sht40_update >= sht40_interval)) {
     last_sht40_update = current_millis;
     sensors_event_t humidity, temp;
     sht40.getEvent(&humidity, &temp);
@@ -192,6 +200,28 @@ void update_sensor_cache() {
         sht40_humidity_index = (sht40_humidity_index + 1) % avg_count_h;
         if (sht40_humidity_readings_count < avg_count_h) { sht40_humidity_readings_count++; }
         final_sht40_humidity = calculate_median(sht40_humidity_readings, sht40_humidity_readings_count);
+    }
+
+    // --- Auto-Dry Logic ---
+    if (auto_dry_config.enabled) {
+        if (final_sht40_humidity >= auto_dry_config.humidity_threshold) {
+            // Humidity is above the trigger threshold
+            if (high_humidity_start_time == 0) {
+                // If timer is not running, start it
+                high_humidity_start_time = current_millis;
+            } else {
+                // If timer is running, check if the duration has been exceeded
+                if (current_millis - high_humidity_start_time >= auto_dry_config.trigger_duration_ms) {
+                    // Duration exceeded, trigger the drying cycle
+                    dry_sht40_sensor();
+                    // Reset the timer to prevent immediate re-triggering
+                    high_humidity_start_time = 0;
+                }
+            }
+        } else {
+            // Humidity is below the threshold, so reset the timer
+            high_humidity_start_time = 0;
+        }
     }
 
     if(xSemaphoreTake(sensor_cache_mutex, (TickType_t)10) == pdTRUE) {
@@ -235,6 +265,44 @@ void update_sensor_cache() {
       }
     }
   }
+}
+
+void dry_sht40_sensor() {
+    // 1. Set flag to pause normal SHT40 updates
+    is_sht40_drying = true;
+
+    // Optional: Log to serial that the process has started.
+    // We need to use the serial_mutex for thread-safe logging.
+    if(xSemaphoreTake(serial_mutex, (TickType_t)10) == pdTRUE) {
+        Serial.println("{\"status\":\"starting SHT40 drying cycle\"}");
+        xSemaphoreGive(serial_mutex);
+    }
+
+    // 2. Activate the heater for one cycle.
+    // SHT4X_HIGH_HEATER_1S provides a 1-second burst at high power (~200mW).
+    // This is effective for driving off moisture.
+    sht40.setHeater(SHT4X_HIGH_HEATER_1S);
+
+    // 3. Trigger the heating cycle by requesting a measurement.
+    // The values read here are from a heated sensor and MUST be discarded.
+    sensors_event_t humidity, temp;
+    sht40.getEvent(&humidity, &temp); // This call blocks until the heating cycle is complete.
+
+    // 4. Immediately disable the heater for all subsequent normal measurements.
+    sht40.setHeater(SHT4X_NO_HEATER);
+
+    // 5. Block this task to allow the sensor to cool down.
+    // A 30-60 second delay is reasonable for the sensor to return to ambient temperature.
+    vTaskDelay(pdMS_TO_TICKS(45000)); // 45-second cool-down period
+
+    // 6. Reset the flag to resume normal SHT40 updates.
+    is_sht40_drying = false;
+
+    // Optional: Log completion
+    if(xSemaphoreTake(serial_mutex, (TickType_t)10) == pdTRUE) {
+        Serial.println("{\"status\":\"SHT40 drying cycle complete\"}");
+        xSemaphoreGive(serial_mutex);
+    }
 }
 
 void get_sensor_values(SensorValues& values_copy) {
