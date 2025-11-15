@@ -70,16 +70,16 @@ func GetFormValueIgnoreCase(r *http.Request, key string) (string, bool) {
 func ParseSwitchID(w http.ResponseWriter, r *http.Request) (int, bool) {
 	idStr, ok := GetFormValueIgnoreCase(r, "Id")
 	if !ok || idStr == "" {
-		ErrorResponse(w, r, http.StatusBadRequest, "Invalid or missing switch ID")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Invalid or missing switch ID")
 		return 0, false
 	}
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ErrorResponse(w, r, http.StatusBadRequest, "Invalid or missing switch ID")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Invalid or missing switch ID")
 		return 0, false
 	}
 	if _, ok := config.SwitchIDMap[id]; !ok {
-		ErrorResponse(w, r, http.StatusBadRequest, "Invalid switch ID")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Invalid switch ID")
 		return 0, false
 	}
 	return id, true

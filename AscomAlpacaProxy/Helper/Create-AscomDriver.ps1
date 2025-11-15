@@ -57,26 +57,73 @@ try {
     exit
 }
 
-# --- 3. Read Proxy Config to find Network Port and IP Address ---
-$DefaultPort = 8080
-$IP = "localhost"
+# --- 3. Determine IP Address and Port ---
+$IP = "127.0.0.1" # Default IP
+$Port = 8080       # Default Port
 $ProxyConfigPath = Join-Path $env:APPDATA "SV241AlpacaProxy\proxy_config.json"
+$useManualEntry = $false
 
 if (Test-Path $ProxyConfigPath) {
     try {
         $ProxyConfig = Get-Content -Raw -Path $ProxyConfigPath | ConvertFrom-Json
-        if ($ProxyConfig.networkPort) {
-            $DefaultPort = $ProxyConfig.networkPort
+        $foundIP = "127.0.0.1" # Default if listenAddress is 0.0.0.0
+        if ($ProxyConfig.listenAddress -and $ProxyConfig.listenAddress -ne "0.0.0.0") {
+            $foundIP = $ProxyConfig.listenAddress
         }
-        if ($ProxyConfig.listenAddress) {
-            $IP = $ProxyConfig.listenAddress
+        $foundPort = $ProxyConfig.networkPort | ForEach-Object { $_ -f "####" } # Ensure it's a number
+
+        Write-Host "------------------------------------------------------------------" -ForegroundColor White
+        Write-Host "Proxy configuration found on this PC." -ForegroundColor Cyan
+        Write-Host "  - Detected IP Address: $foundIP"
+        Write-Host "  - Detected Port:       $foundPort"
+        Write-Host "------------------------------------------------------------------" -ForegroundColor White
+
+        $choice = Read-Host "Do you want to use these settings? (Y/n)"
+        if ($choice -eq 'n' -or $choice -eq 'N') {
+            $useManualEntry = $true
+        } else {
+            $IP = $foundIP
+            $Port = $foundPort
         }
-        Write-Host "Found proxy configuration. Using IP '$IP' and Port '$DefaultPort'." -ForegroundColor Cyan
     } catch {
-        Write-Host "Warning: Could not read or parse '$ProxyConfigPath'. Using defaults." -ForegroundColor Yellow
+        Write-Host "Warning: Could not read or parse '$ProxyConfigPath'. Manual entry required." -ForegroundColor Yellow
+        $useManualEntry = $true
     }
 } else {
-    Write-Host "Proxy config file not found. Using default IP '$IP' and Port '$DefaultPort'." -ForegroundColor Cyan
+    Write-Host "Proxy configuration not found on this PC. Please enter details manually." -ForegroundColor Cyan
+    $useManualEntry = $true
+}
+
+if ($useManualEntry) {
+    Write-Host "------------------------------------------------------------------" -ForegroundColor White
+    # --- Manual IP Input ---
+    while ($true) {
+        $manualIP = Read-Host "Enter the IP Address of the computer running the SV241 Proxy [$IP]"
+        if ([string]::IsNullOrWhiteSpace($manualIP)) {
+            $manualIP = $IP
+        }
+        try {
+            [System.Net.IPAddress]::Parse($manualIP) | Out-Null
+            $IP = $manualIP
+            break
+        } catch {
+            Write-Host "ERROR: '$manualIP' is not a valid IP address. Please try again." -ForegroundColor Red
+        }
+    }
+
+    # --- Manual Port Input ---
+    while ($true) {
+        $manualPort = Read-Host "Enter the Port Number of the SV241 Proxy [$Port]"
+        if ([string]::IsNullOrWhiteSpace($manualPort)) {
+            $manualPort = $Port
+        }
+        if ($manualPort -match "^\d{1,5}$" -and [int]$manualPort -ge 1 -and [int]$manualPort -le 65535) {
+            $Port = [int]$manualPort
+            break
+        } else {
+            Write-Host "ERROR: '$manualPort' is not a valid port number (1-65535). Please try again." -ForegroundColor Red
+        }
+    }
 }
 
 
@@ -101,7 +148,6 @@ if ([string]::IsNullOrWhiteSpace($DisplayName)) {
 
 # --- 5. Define Remaining Parameters and Create Driver ---
 $DeviceNum = 0
-$Port = $DefaultPort # Use the auto-detected port
 $UniqueID = [guid]::NewGuid().ToString()
 
 Write-Host "------------------------------------------------------------------" -ForegroundColor White

@@ -159,7 +159,7 @@ func deviceMux(handlers map[string]http.HandlerFunc, api *alpaca.API) http.Handl
 		path := strings.TrimSuffix(r.URL.Path, "/")
 		lastSlash := strings.LastIndex(path, "/")
 		if lastSlash == -1 {
-			alpaca.ErrorResponse(w, r, http.StatusNotFound, "Invalid URL path.")
+			alpaca.ErrorResponse(w, r, http.StatusNotFound, 0x404, "Invalid URL path.")
 			return
 		}
 		method := strings.ToLower(path[lastSlash+1:])
@@ -167,7 +167,7 @@ func deviceMux(handlers map[string]http.HandlerFunc, api *alpaca.API) http.Handl
 		if handler, ok := handlers[method]; ok {
 			handler(w, r)
 		} else {
-			alpaca.ErrorResponse(w, r, http.StatusNotFound, fmt.Sprintf("Method '%s' not found on this device.", method))
+			alpaca.ErrorResponse(w, r, http.StatusNotFound, 0x404, fmt.Sprintf("Method '%s' not found on this device.", method))
 		}
 	}
 }

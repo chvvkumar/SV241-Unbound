@@ -108,11 +108,11 @@ func (a *API) HandleConnected(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		connectedStr, ok := GetFormValueIgnoreCase(r, "Connected")
 		if !ok {
-			ErrorResponse(w, r, 0x400, "Missing Connected parameter for PUT request")
+			ErrorResponse(w, r, http.StatusOK, 0x400, "Missing Connected parameter for PUT request")
 			return
 		}
 		if _, err := strconv.ParseBool(connectedStr); err != nil {
-			ErrorResponse(w, r, 0x400, fmt.Sprintf("Invalid value for Connected: '%s'", connectedStr))
+			ErrorResponse(w, r, http.StatusOK, 0x400, fmt.Sprintf("Invalid value for Connected: '%s'", connectedStr))
 			return
 		}
 		// The connection is managed automatically, so we just acknowledge.
@@ -169,7 +169,7 @@ func (a *API) HandleSwitchGetSwitch(w http.ResponseWriter, r *http.Request) {
 	if val, ok := serial.Status.Data[shortKey]; ok {
 		BoolResponse(w, r, val.(float64) >= 1.0)
 	} else {
-		ErrorResponse(w, r, 0x400, "Could not read switch status from cache")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Could not read switch status from cache")
 	}
 }
 
@@ -188,7 +188,7 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 		}
 		FloatResponse(w, r, switchValue)
 	} else {
-		ErrorResponse(w, r, 0x400, "Could not read switch value from cache")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Could not read switch value from cache")
 	}
 }
 
@@ -203,18 +203,18 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 	if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil {
-			ErrorResponse(w, r, 400, "Invalid Value parameter")
+			ErrorResponse(w, r, http.StatusOK, 400, "Invalid Value parameter")
 			return
 		}
 		state = (value >= 1.0)
 	} else if stateStr, ok := GetFormValueIgnoreCase(r, "State"); ok {
 		state, err = strconv.ParseBool(stateStr)
 		if err != nil {
-			ErrorResponse(w, r, 400, "Invalid State parameter")
+			ErrorResponse(w, r, http.StatusOK, 400, "Invalid State parameter")
 			return
 		}
 	} else {
-		ErrorResponse(w, r, 400, "Missing Value or State parameter")
+		ErrorResponse(w, r, http.StatusOK, 400, "Missing Value or State parameter")
 		return
 	}
 
@@ -227,7 +227,7 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 	command := fmt.Sprintf(`{"set":{"%s":%d}}`, shortKey, stateInt)
 	responseJSON, err := serial.SendCommand(command, true, 0)
 	if err != nil {
-		ErrorResponse(w, r, http.StatusInternalServerError, fmt.Sprintf("Failed to send command: %v", err))
+		ErrorResponse(w, r, http.StatusInternalServerError, http.StatusInternalServerError, fmt.Sprintf("Failed to send command: %v", err))
 		return
 	}
 
@@ -253,7 +253,7 @@ func (a *API) HandleSwitchSetSwitchName(w http.ResponseWriter, r *http.Request) 
 	}
 	newName, ok := GetFormValueIgnoreCase(r, "Name")
 	if !ok {
-		ErrorResponse(w, r, http.StatusBadRequest, "Missing Name parameter")
+		ErrorResponse(w, r, http.StatusBadRequest, http.StatusBadRequest, "Missing Name parameter")
 		return
 	}
 
@@ -264,7 +264,7 @@ func (a *API) HandleSwitchSetSwitchName(w http.ResponseWriter, r *http.Request) 
 
 	if err := config.Save(); err != nil {
 		logger.Error("Failed to save proxy config after setting switch name: %v", err)
-		ErrorResponse(w, r, http.StatusInternalServerError, "Failed to save configuration")
+		ErrorResponse(w, r, http.StatusInternalServerError, http.StatusInternalServerError, "Failed to save configuration")
 		return
 	}
 	EmptyResponse(w, r)
@@ -302,7 +302,7 @@ func (a *API) HandleSwitchSupportedActions(w http.ResponseWriter, r *http.Reques
 func (a *API) HandleSwitchAction(w http.ResponseWriter, r *http.Request) {
 	action, ok := GetFormValueIgnoreCase(r, "Action")
 	if !ok {
-		ErrorResponse(w, r, 0x400, "Missing Action parameter")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Missing Action parameter")
 		return
 	}
 
@@ -327,7 +327,7 @@ func (a *API) HandleSwitchAction(w http.ResponseWriter, r *http.Request) {
 		if value, found := serial.Conditions.Data["v"]; found && value != nil {
 			valueStr = fmt.Sprintf("%v", value)
 		} else {
-			ErrorResponse(w, r, 0x500, "Value for action 'getvoltage' not available.")
+			ErrorResponse(w, r, http.StatusOK, 0x401, "Sensor not available or failed to read.")
 			return
 		}
 	case "getpower":
@@ -336,7 +336,7 @@ func (a *API) HandleSwitchAction(w http.ResponseWriter, r *http.Request) {
 		if value, found := serial.Conditions.Data["p"]; found && value != nil {
 			valueStr = fmt.Sprintf("%v", value)
 		} else {
-			ErrorResponse(w, r, 0x500, "Value for action 'getpower' not available.")
+			ErrorResponse(w, r, http.StatusOK, 0x401, "Sensor not available or failed to read.")
 			return
 		}
 	case "getcurrent":
@@ -346,15 +346,15 @@ func (a *API) HandleSwitchAction(w http.ResponseWriter, r *http.Request) {
 			if currentMA, ok := value.(float64); ok {
 				valueStr = fmt.Sprintf("%.3f", currentMA/1000.0)
 			} else {
-				ErrorResponse(w, r, 0x500, "Invalid data type for current in cache.")
+				ErrorResponse(w, r, http.StatusOK, 0x401, "Invalid data type for current in cache.")
 				return
 			}
 		} else {
-			ErrorResponse(w, r, 0x500, "Value for action 'getcurrent' not available.")
+			ErrorResponse(w, r, http.StatusOK, 0x401, "Sensor not available or failed to read.")
 			return
 		}
 	default:
-		ErrorResponse(w, r, 0x400, fmt.Sprintf("Action '%s' is not supported.", action))
+		ErrorResponse(w, r, http.StatusOK, 0x400, fmt.Sprintf("Action '%s' is not supported.", action))
 		return
 	}
 	StringResponse(w, r, valueStr)
@@ -365,91 +365,91 @@ func (a *API) HandleSwitchAction(w http.ResponseWriter, r *http.Request) {
 func (a *API) HandleObsCondTemperature(w http.ResponseWriter, r *http.Request) {
 	serial.Conditions.RLock()
 	defer serial.Conditions.RUnlock()
-	if val, ok := serial.Conditions.Data["t_amb"]; ok {
+	if val, ok := serial.Conditions.Data["t_amb"]; ok && val != nil {
 		FloatResponse(w, r, val.(float64))
 	} else {
-		ErrorResponse(w, r, 0x400, "Could not read temperature from cache")
+		ErrorResponse(w, r, http.StatusOK, 0x401, "Sensor not available or failed to read.")
 	}
 }
 
 func (a *API) HandleObsCondHumidity(w http.ResponseWriter, r *http.Request) {
 	serial.Conditions.RLock()
 	defer serial.Conditions.RUnlock()
-	if val, ok := serial.Conditions.Data["h_amb"]; ok {
+	if val, ok := serial.Conditions.Data["h_amb"]; ok && val != nil {
 		FloatResponse(w, r, val.(float64))
 	} else {
-		ErrorResponse(w, r, 0x400, "Could not read humidity from cache")
+		ErrorResponse(w, r, http.StatusOK, 0x401, "Sensor not available or failed to read.")
 	}
 }
 
 func (a *API) HandleObsCondDewPoint(w http.ResponseWriter, r *http.Request) {
 	serial.Conditions.RLock()
 	defer serial.Conditions.RUnlock()
-	if val, ok := serial.Conditions.Data["d"]; ok {
+	if val, ok := serial.Conditions.Data["d"]; ok && val != nil {
 		FloatResponse(w, r, val.(float64))
 	} else {
-		ErrorResponse(w, r, 0x400, "Could not read dew point from cache")
+		ErrorResponse(w, r, http.StatusOK, 0x401, "Sensor not available or failed to read.")
 	}
 }
 
 func (a *API) HandleObsCondNotImplemented(w http.ResponseWriter, r *http.Request) {
-	ErrorResponse(w, r, 0x40C, "Property not implemented by this driver.")
+	ErrorResponse(w, r, http.StatusOK, 0x40C, "Property not implemented by this driver.")
 }
 
 func (a *API) HandleObsCondAveragePeriod(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		avgPeriodStr, ok := GetFormValueIgnoreCase(r, "AveragePeriod")
 		if !ok {
-			ErrorResponse(w, r, 0x400, "Missing required parameter 'AveragePeriod'.")
+			ErrorResponse(w, r, http.StatusOK, 0x400, "Missing required parameter 'AveragePeriod'.")
 			return
 		}
 		if _, err := strconv.ParseFloat(avgPeriodStr, 64); err != nil {
-			ErrorResponse(w, r, 0x401, fmt.Sprintf("Invalid value '%s' for AveragePeriod.", avgPeriodStr))
+			ErrorResponse(w, r, http.StatusOK, 0x401, fmt.Sprintf("Invalid value '%s' for AveragePeriod.", avgPeriodStr))
 			return
 		}
 	}
-	ErrorResponse(w, r, 0x40C, "Property not implemented by this driver.")
+	ErrorResponse(w, r, http.StatusOK, 0x40C, "Property not implemented by this driver.")
 }
 
 func (a *API) HandleObsCondSensorDescription(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
-		ErrorResponse(w, r, 0x405, "Method PUT not allowed for sensordescription.")
+		ErrorResponse(w, r, http.StatusMethodNotAllowed, 0x405, "Method PUT not allowed for sensordescription.")
 		return
 	}
 	sensorName, ok := GetFormValueIgnoreCase(r, "SensorName")
 	if !ok {
-		ErrorResponse(w, r, 0x400, "Missing required parameter 'SensorName'.")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Missing required parameter 'SensorName'.")
 		return
 	}
 	switch strings.ToLower(sensorName) {
 	case "temperature", "humidity", "dewpoint":
-		ErrorResponse(w, r, 0x40C, "Property not implemented by this driver.")
+		ErrorResponse(w, r, http.StatusOK, 0x40C, "Property not implemented by this driver.")
 	default:
-		ErrorResponse(w, r, 0x401, fmt.Sprintf("Invalid SensorName: '%s'", sensorName))
+		ErrorResponse(w, r, http.StatusOK, 0x401, fmt.Sprintf("Invalid SensorName: '%s'", sensorName))
 	}
 }
 
 func (a *API) HandleObsCondTimeSinceLastUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
-		ErrorResponse(w, r, 0x405, "Method PUT not allowed for timesincelastupdate.")
+		ErrorResponse(w, r, http.StatusMethodNotAllowed, 0x405, "Method PUT not allowed for timesincelastupdate.")
 		return
 	}
 	sensorName, ok := GetFormValueIgnoreCase(r, "SensorName")
 	if !ok {
-		ErrorResponse(w, r, 0x400, "Missing required parameter 'SensorName'.")
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Missing required parameter 'SensorName'.")
 		return
 	}
 	switch strings.ToLower(sensorName) {
 	case "temperature", "humidity", "dewpoint":
-		ErrorResponse(w, r, 0x40C, "Property not implemented by this driver.")
+		ErrorResponse(w, r, http.StatusOK, 0x40C, "Property not implemented by this driver.")
 	default:
-		ErrorResponse(w, r, 0x401, fmt.Sprintf("Invalid SensorName: '%s'", sensorName))
+		ErrorResponse(w, r, http.StatusOK, 0x401, fmt.Sprintf("Invalid SensorName: '%s'", sensorName))
 	}
 }
 
 func (a *API) HandleObsCondRefresh(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "PUT" {
-		ErrorResponse(w, r, 0x405, "Method "+r.Method+" not allowed for refresh.")
+		ErrorResponse(w, r, http.StatusMethodNotAllowed, 0x405, "Method "+r.Method+" not allowed for refresh.")
 		return
 	}
 	EmptyResponse(w, r)

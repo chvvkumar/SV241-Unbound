@@ -68,15 +68,7 @@ func StringListResponse(w http.ResponseWriter, r *http.Request, value []string) 
 	writeResponse(w, r, resp)
 }
 
-func ErrorResponse(w http.ResponseWriter, r *http.Request, errNum int, errMsg string) {
-	httpStatus := http.StatusOK
-	// The conformance checker expects HTTP 200 OK for Alpaca errors,
-	// but using proper HTTP status codes is better practice for non-Alpaca clients.
-	// We will stick to the spec for now.
-	// if errNum >= 400 && errNum < 600 {
-	// 	httpStatus = errNum
-	// }
-
+func ErrorResponse(w http.ResponseWriter, r *http.Request, httpStatus int, errNum int, errMsg string) {
 	resp := Response{
 		ClientTransactionID: atomic.LoadUint32(&ClientTransactionID),
 		ServerTransactionID: atomic.AddUint32(&ServerTransactionID, 1),
@@ -85,7 +77,7 @@ func ErrorResponse(w http.ResponseWriter, r *http.Request, errNum int, errMsg st
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
-	logger.Error("Alpaca request failed with error %d: %s", errNum, errMsg)
+	logger.Error("Alpaca request failed with HTTP status %d, error %d: %s", httpStatus, errNum, errMsg)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -118,6 +110,19 @@ func FloatResponse(w http.ResponseWriter, r *http.Request, value float64) {
 			ServerTransactionID: atomic.AddUint32(&ServerTransactionID, 1),
 		},
 		Value: value,
+	}
+	writeResponse(w, r, resp)
+}
+
+func InvalidValueResponse(w http.ResponseWriter, r *http.Request, errNum int, errMsg string) {
+	resp := ValueResponse{
+		Response: Response{
+			ClientTransactionID: atomic.LoadUint32(&ClientTransactionID),
+			ServerTransactionID: atomic.AddUint32(&ServerTransactionID, 1),
+			ErrorNumber:         errNum,
+			ErrorMessage:        errMsg,
+		},
+		Value: nil, // Use nil for the value in an invalid value response
 	}
 	writeResponse(w, r, resp)
 }

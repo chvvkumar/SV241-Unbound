@@ -346,27 +346,15 @@ void get_sensor_values_json(JsonDocument& doc) {
   SensorValues values;
   get_sensor_values(values);
 
-  if (!isnan(values.ina_voltage)) {
-    doc["v"] = round(values.ina_voltage * 10) / 10.0;
-  }
-  if (!isnan(values.ina_current)) {
-    doc["i"] = round(values.ina_current * 10) / 10.0;
-  }
-  if (!isnan(values.ina_power)) {
-    doc["p"] = round(values.ina_power * 10) / 10.0;
-  }
-  if (!isnan(values.sht_temperature)) {
-    doc["t_amb"] = round(values.sht_temperature * 10) / 10.0;
-  }
-  if (!isnan(values.sht_humidity)) {
-    doc["h_amb"] = round(values.sht_humidity * 10) / 10.0;
-  }
-  if (!isnan(values.sht_dew_point)) {
-    doc["d"] = round(values.sht_dew_point * 10) / 10.0;
-  }
-  if (!isnan(values.ds18b20_temperature)) {
-    doc["t_lens"] = round(values.ds18b20_temperature * 10) / 10.0;
-  }
+  // The ArduinoJson library automatically serializes NAN float/double values to 'null' in the JSON output.
+  // By removing the isnan() checks, we achieve the desired behavior of reporting disconnected sensors as null.
+  doc["v"] = round(values.ina_voltage * 10) / 10.0;
+  doc["i"] = round(values.ina_current * 10) / 10.0;
+  doc["p"] = round(values.ina_power * 10) / 10.0;
+  doc["t_amb"] = round(values.sht_temperature * 10) / 10.0;
+  doc["h_amb"] = round(values.sht_humidity * 10) / 10.0;
+  doc["d"] = round(values.sht_dew_point * 10) / 10.0;
+  doc["t_lens"] = round(values.ds18b20_temperature * 10) / 10.0;
   
   doc["pwm1"] = get_heater_power(0);
   doc["pwm2"] = get_heater_power(1);

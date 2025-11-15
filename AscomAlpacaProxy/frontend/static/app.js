@@ -694,10 +694,18 @@
 
                     const format = (elId, value, points) => {
                         const el = document.getElementById(elId);
-                        if (el) el.textContent = typeof value === 'number' ? value.toFixed(points) : value;
-                    }
+                        if (el) {
+                            if (value === null || typeof value === 'undefined') {
+                                el.textContent = 'N/A';
+                            } else if (typeof value === 'number') {
+                                el.textContent = value.toFixed(points);
+                            } else {
+                                el.textContent = value;
+                            }
+                        }
+                    };
                     format('status-v', data.v, 2); // v is already short
-                    format('status-i', data.i / 1000, 2); // i is already short
+                    format('status-i', (data.i === null || typeof data.i === 'undefined') ? null : data.i / 1000, 2); // i is already short
                     format('status-p', data.p, 2); // p is already short
                     format('status-t_amb', data.t_amb, 1); // t_amb is already short
                     format('status-h_amb', data.h_amb, 1); // h_amb is already short
