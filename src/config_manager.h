@@ -48,7 +48,7 @@ struct AveragingCounts {
 struct DewHeaterConfig {
     char name[32];
     bool enabled_on_startup;
-    int mode;              // 0: Manual, 1: PID, 2: Ambient Tracking
+    int mode;              // 0: Manual, 1: PID, 2: Ambient Tracking, 3: PID Sync, 4: Minimum Temperature
     int manual_power;      // Manual power in % (if mode is 0)
     
     // PID settings (for mode 1)
@@ -64,6 +64,9 @@ struct DewHeaterConfig {
 
     // PID Sync settings (for mode 3)
     float pid_sync_factor;
+
+    // Minimum Temperature settings (for mode 4)
+    float min_temp;        // Minimum temperature to maintain
 };
 
 // Configuration for the SHT40 automatic drying feature

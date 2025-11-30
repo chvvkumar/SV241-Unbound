@@ -16,8 +16,8 @@ static int heater_power[MAX_DEW_HEATERS] = {0}; // Live power percentage (0-100)
 static float pid_setpoint[MAX_DEW_HEATERS];
 static float pid_input[MAX_DEW_HEATERS];
 static float pid_output[MAX_DEW_HEATERS];
-// Statt einem Array von Pointern deklarieren wir ein Array von PID-Objekten.
-// Wir initialisieren sie mit Platzhalterwerten, da die echten Werte später aus der Konfiguration geladen werden.
+// Instead of an array of pointers, we declare an array of PID objects.
+// We initialize them with placeholder values, as the real values will be loaded from the configuration later.
 static QuickPID heater_pids[MAX_DEW_HEATERS] = {
     QuickPID(&pid_input[0], &pid_output[0], &pid_setpoint[0]),
     QuickPID(&pid_input[1], &pid_output[1], &pid_setpoint[1])};
@@ -50,8 +50,8 @@ void setup_dew_heaters() {
         DewHeaterConfig heater_config_copy = config.dew_heaters[i];
         xSemaphoreGive(config_mutex);
 
-        // Konfiguriere das bereits existierende PID-Objekt.
-        // Die dynamische Allokation mit 'new' wird entfernt, um das Speicherleck zu beheben.
+        // Configure the existing PID object.
+        // Dynamic allocation with 'new' is removed to fix the memory leak.
         heater_pids[i].SetTunings(heater_config_copy.pid_kp, heater_config_copy.pid_ki, heater_config_copy.pid_kd);
         heater_pids[i].SetControllerDirection(QuickPID::Action::direct);
         // The PID now controls power percentage (0-100), not the raw PWM value.
@@ -139,7 +139,7 @@ void dew_control_task(void *pvParameters) {
             // --- Safety Check for Automatic Modes ---
             // Before running automatic modes, ensure the required sensor data is valid.
             bool sensor_data_valid = true;
-            if (heater_config.mode == 1) { // PID Mode
+            if (heater_config.mode == 1 || heater_config.mode == 4) { // PID Mode & Min Temp Mode
                 if (isnan(dew_point) || isnan(sensor_values.ds18b20_temperature)) {
                     sensor_data_valid = false;
                 }
@@ -167,9 +167,7 @@ void dew_control_task(void *pvParameters) {
                 }
 
                 case 1: { // PID Mode
-                    // Use the dedicated lens temperature sensor
                     float lens_temp = sensor_values.ds18b20_temperature;
-
                     pid_input[i] = lens_temp;
                     pid_setpoint[i] = dew_point + heater_config.target_offset;
                     
@@ -178,13 +176,32 @@ void dew_control_task(void *pvParameters) {
                     
                     heater_pids[i].Compute(); // pid_output[i] is now a value from 0-100
 
-                    // The output of the PID is the desired power percentage.
                     int power_percentage = (int)pid_output[i];
-                    power_percentage = constrain(power_percentage, 0, 100); // Clamp for safety
+                    power_percentage = constrain(power_percentage, 0, 100);
+                    heater_power[i] = power_percentage;
 
-                    heater_power[i] = power_percentage; // Store the live power percentage
+                    uint32_t duty_cycle = get_corrected_duty_cycle(power_percentage);
+                    ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
+                    break;
+                }
+                
+                case 4: { // Minimum Temperature Mode
+                    float lens_temp = sensor_values.ds18b20_temperature;
+                    pid_input[i] = lens_temp;
 
-                    // Get the gamma-corrected duty cycle for the calculated power.
+                    // The setpoint is the HIGHER of the minimum temp or the dew point target
+                    float dew_point_target = dew_point + heater_config.target_offset;
+                    pid_setpoint[i] = max(heater_config.min_temp, dew_point_target);
+                    
+                    // Update PID tunings in case they changed
+                    heater_pids[i].SetTunings(heater_config.pid_kp, heater_config.pid_ki, heater_config.pid_kd);
+                    
+                    heater_pids[i].Compute();
+
+                    int power_percentage = (int)pid_output[i];
+                    power_percentage = constrain(power_percentage, 0, 100);
+                    heater_power[i] = power_percentage;
+
                     uint32_t duty_cycle = get_corrected_duty_cycle(power_percentage);
                     ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
                     break;
@@ -213,16 +230,16 @@ void dew_control_task(void *pvParameters) {
                 }
 
                 case 3: { // PID-Sync Mode
-                    int leader_index = 1 - i; // Der andere Heizer ist der Leader
+                    int leader_index = 1 - i; // The other heater is the leader
                     
-                    // Sicherstellen, dass der Leader tatsächlich im PID-Modus ist
+                    // Make sure the leader is actually in PID mode
                     if (config.dew_heaters[leader_index].mode == 1) {
                         float leader_power = (float)heater_power[leader_index];
                         float follower_power = leader_power * heater_config.pid_sync_factor;
                         
                         heater_power[i] = constrain((int)round(follower_power), 0, 100);
                     } else {
-                        // Wenn der Leader nicht im PID-Modus ist, schalten wir sicherheitshalber ab.
+                        // If the leader is not in PID mode, we turn off for safety.
                         heater_power[i] = 0;
                     }
 

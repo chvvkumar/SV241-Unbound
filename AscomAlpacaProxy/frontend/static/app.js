@@ -82,28 +82,72 @@
 
             // --- Heater Mode UI ---
             function updateHeaterModeView(heaterIndex) {
-                const currentHeaterModeSelect = document.getElementById(`heater-${heaterIndex}-mode`);
-                const selectedMode = currentHeaterModeSelect.value;
-
-                // Hide/show settings blocks for the current heater
+                const selectedMode = document.getElementById(`heater-${heaterIndex}-mode`).value;
                 document.querySelectorAll(`#heater-${heaterIndex} .mode-settings`).forEach(el => el.classList.remove('active'));
                 const activeSettings = document.getElementById(`heater-${heaterIndex}-mode-${selectedMode}`);
                 if (activeSettings) activeSettings.classList.add('active');
+            }
 
-                // --- New logic to control the other heater's options ---
-                const otherHeaterIndex = 1 - heaterIndex;
-                const otherHeaterModeSelect = document.getElementById(`heater-${otherHeaterIndex}-mode`);
-                const otherHeaterSyncOption = otherHeaterModeSelect.querySelector('option[value="3"]');
+            function updateHeaterOptions() {
+                const heater0ModeSelect = document.getElementById('heater-0-mode');
+                const heater1ModeSelect = document.getElementById('heater-1-mode');
+                if (!heater0ModeSelect || !heater1ModeSelect) return;
 
-                // If the current heater is in PID mode, the other can be a follower. Otherwise, it cannot.
-                const isLeaderInPidMode = (currentHeaterModeSelect.value === '1');
-                otherHeaterSyncOption.disabled = !isLeaderInPidMode;
+                const exclusiveModes = ['1', '4']; // Values for 'PID (Lens Sensor)' and 'Minimum Temperature'
+                const pidMode = '1';
+                const syncMode = '3';
 
-                // If the other heater was a follower but its leader is no longer in PID mode, reset it to manual.
-                if (!isLeaderInPidMode && otherHeaterModeSelect.value === '3') {
-                    otherHeaterModeSelect.value = '0'; // Reset to Manual
-                    // Trigger an update for the other heater as well to reflect the change
-                    updateHeaterModeView(otherHeaterIndex); 
+                // 1. Reset by enabling all options on both selects
+                for (const option of heater0ModeSelect.options) { option.disabled = false; }
+                for (const option of heater1ModeSelect.options) { option.disabled = false; }
+
+                // Function to apply disabling logic
+                const applyConstraints = () => {
+                    const val0 = heater0ModeSelect.value;
+                    const val1 = heater1ModeSelect.value;
+
+                    // 2. Handle PID-Sync (Follower) mode constraints
+                    const syncOption1 = heater1ModeSelect.querySelector(`option[value="${syncMode}"]`);
+                    if (syncOption1) syncOption1.disabled = (val0 !== pidMode);
+                    
+                    const syncOption0 = heater0ModeSelect.querySelector(`option[value="${syncMode}"]`);
+                    if (syncOption0) syncOption0.disabled = (val1 !== pidMode);
+
+                    // 3. Handle exclusive modes (PID and Minimum Temperature)
+                    if (exclusiveModes.includes(val0)) {
+                        for (const option of heater1ModeSelect.options) {
+                            if (exclusiveModes.includes(option.value)) {
+                                option.disabled = true;
+                            }
+                        }
+                    }
+                    if (exclusiveModes.includes(val1)) {
+                        for (const option of heater0ModeSelect.options) {
+                            if (exclusiveModes.includes(option.value)) {
+                                option.disabled = true;
+                            }
+                        }
+                    }
+                };
+                
+                applyConstraints();
+
+                // 4. Final check: If a current selection has become invalid, reset it to 'Manual'
+                let resetOccurred = false;
+                if (heater0ModeSelect.options[heater0ModeSelect.selectedIndex].disabled) {
+                    heater0ModeSelect.value = '0';
+                    updateHeaterModeView(0);
+                    resetOccurred = true;
+                }
+                if (heater1ModeSelect.options[heater1ModeSelect.selectedIndex].disabled) {
+                    heater1ModeSelect.value = '0';
+                    updateHeaterModeView(1);
+                    resetOccurred = true;
+                }
+                
+                // 5. If a reset happened, re-apply constraints to ensure state is consistent
+                if (resetOccurred) {
+                    applyConstraints();
                 }
             }
 
@@ -115,7 +159,7 @@
                     const config = await response.json();
                     originalConfig = JSON.parse(JSON.stringify(config)); // Deep copy
                     
-                    document.getElementById('adj-voltage').value = config.av !== undefined ? config.av : ''; // Behandelt 'av', wenn es undefined ist
+                    document.getElementById('adj-voltage').value = config.av !== undefined ? config.av : ''; // Handles 'av' if it is undefined
 
                     if (config.so) { // sensor_offsets -> so
                         document.getElementById('offset-sht40-temp').value = config.so.st;
@@ -160,8 +204,18 @@
                             document.getElementById(`heater-${i}-end-delta`).value = heaterConf.ed ?? '';
                             document.getElementById(`heater-${i}-max-power`).value = heaterConf.xp ?? 0; // Standard auf 0 für maximalen Leistungsprozentsatz
                             document.getElementById(`heater-${i}-pid-sync-factor`).value = heaterConf.psf ?? '';
+                            
+                            // New fields for Minimum Temperature mode
+                            document.getElementById(`heater-${i}-min-temp`).value = heaterConf.mt ?? '';
+                            // Also populate the duplicated PID fields for mode 4
+                            document.getElementById(`heater-${i}-target-offset-4`).value = heaterConf.to ?? '';
+                            document.getElementById(`heater-${i}-pid-kp-4`).value = heaterConf.kp ?? '';
+                            document.getElementById(`heater-${i}-pid-ki-4`).value = heaterConf.ki ?? '';
+                            document.getElementById(`heater-${i}-pid-kd-4`).value = heaterConf.kd ?? '';
+
                             updateHeaterModeView(i);
                         });
+                        updateHeaterOptions(); // Set initial constraints after loading
                     }
 
                     if (config.ad) { // auto_dry -> ad
@@ -369,20 +423,37 @@
             }
 
             async function saveDewHeaterSettings() {
-                const dewHeatersConfig = [0, 1].map(i => ({
-                    n: originalConfig.dh[i].n, // name
-                    en: document.getElementById(`heater-${i}-startup-enabled`).checked, // enabled_on_startup
-                    m: parseInt(document.getElementById(`heater-${i}-mode`).value, 10), // mode
-                    mp: parseInt(document.getElementById(`heater-${i}-manual-power`).value, 10) || 0, // manual_power
-                    to: parseFloat(document.getElementById(`heater-${i}-target-offset`).value.replace(',', '.')), // target_offset
-                    kp: parseFloat(document.getElementById(`heater-${i}-pid-kp`).value.replace(',', '.')), // pid_kp
-                    ki: parseFloat(document.getElementById(`heater-${i}-pid-ki`).value.replace(',', '.')), // pid_ki
-                    kd: parseFloat(document.getElementById(`heater-${i}-pid-kd`).value.replace(',', '.')), // pid_kd
-                    sd: parseFloat(document.getElementById(`heater-${i}-start-delta`).value.replace(',', '.')), // start_delta
-                    ed: parseFloat(document.getElementById(`heater-${i}-end-delta`).value.replace(',', '.')), // end_delta
-                    xp: parseInt(document.getElementById(`heater-${i}-max-power`).value, 10) || 0, // max_power
-                    psf: parseFloat(document.getElementById(`heater-${i}-pid-sync-factor`).value.replace(',', '.')) // pid_sync_factor
-                }));
+                const dewHeatersConfig = [0, 1].map(i => {
+                    const mode = parseInt(document.getElementById(`heater-${i}-mode`).value, 10);
+                    let pidSettings = {
+                        to: parseFloat(document.getElementById(`heater-${i}-target-offset`).value.replace(',', '.')),
+                        kp: parseFloat(document.getElementById(`heater-${i}-pid-kp`).value.replace(',', '.')),
+                        ki: parseFloat(document.getElementById(`heater-${i}-pid-ki`).value.replace(',', '.')),
+                        kd: parseFloat(document.getElementById(`heater-${i}-pid-kd`).value.replace(',', '.'))
+                    };
+
+                    if (mode === 4) {
+                        pidSettings = {
+                            to: parseFloat(document.getElementById(`heater-${i}-target-offset-4`).value.replace(',', '.')),
+                            kp: parseFloat(document.getElementById(`heater-${i}-pid-kp-4`).value.replace(',', '.')),
+                            ki: parseFloat(document.getElementById(`heater-${i}-pid-ki-4`).value.replace(',', '.')),
+                            kd: parseFloat(document.getElementById(`heater-${i}-pid-kd-4`).value.replace(',', '.'))
+                        };
+                    }
+
+                    return {
+                        n: originalConfig.dh[i].n, // name
+                        en: document.getElementById(`heater-${i}-startup-enabled`).checked, // enabled_on_startup
+                        m: mode, // mode
+                        mp: parseInt(document.getElementById(`heater-${i}-manual-power`).value, 10) || 0, // manual_power
+                        ...pidSettings,
+                        sd: parseFloat(document.getElementById(`heater-${i}-start-delta`).value.replace(',', '.')), // start_delta
+                        ed: parseFloat(document.getElementById(`heater-${i}-end-delta`).value.replace(',', '.')), // end_delta
+                        xp: parseInt(document.getElementById(`heater-${i}-max-power`).value, 10) || 0, // max_power
+                        psf: parseFloat(document.getElementById(`heater-${i}-pid-sync-factor`).value.replace(',', '.')), // pid_sync_factor
+                        mt: parseFloat(document.getElementById(`heater-${i}-min-temp`).value.replace(',', '.')) // min_temp
+                    };
+                });
 
                 const newConfig = {
                     dh: dewHeatersConfig // dew_heaters
@@ -869,6 +940,25 @@
                 }
             }
 
+            function setupPidSync() {
+                for (let i = 0; i < 2; i++) {
+                    const fields = ['target-offset', 'pid-kp', 'pid-ki', 'pid-kd'];
+                    fields.forEach(field => {
+                        const input1 = document.getElementById(`heater-${i}-${field}`);
+                        const input4 = document.getElementById(`heater-${i}-${field}-4`);
+
+                        if (input1 && input4) {
+                            input1.addEventListener('input', () => {
+                                input4.value = input1.value;
+                            });
+                            input4.addEventListener('input', () => {
+                                input1.value = input4.value;
+                            });
+                        }
+                    });
+                }
+            }
+
             async function initialLoad() {
                 setupCollapsible();
                 await fetchProxyConfig(); // Fetches proxy config but doesn't fully apply it yet
@@ -878,6 +968,7 @@
                 await fetchFirmwareVersion();
                 setupLogViewer();
                 setupChangeDetection();
+                setupPidSync();
                 setInterval(fetchLiveStatus, 2000); // Fetch status and update connection indicator
                 setInterval(fetchPowerStatus, 5000);
             }
@@ -885,8 +976,14 @@
             initialLoad();
             
             masterPowerSwitch.addEventListener('change', (e) => setAllPower(e.target.checked));
-            document.getElementById('heater-0-mode').addEventListener('change', () => updateHeaterModeView(0));
-            document.getElementById('heater-1-mode').addEventListener('change', () => updateHeaterModeView(1));
+            document.getElementById('heater-0-mode').addEventListener('change', () => {
+                updateHeaterModeView(0);
+                updateHeaterOptions();
+            });
+            document.getElementById('heater-1-mode').addEventListener('change', () => {
+                updateHeaterModeView(1);
+                updateHeaterOptions();
+            });
 
             document.getElementById('proxy-auto-detect-port').addEventListener('change', (e) => {
                 const serialPortInput = document.getElementById('proxy-serial-port');

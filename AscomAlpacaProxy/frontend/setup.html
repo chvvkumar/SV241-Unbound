@@ -137,6 +137,7 @@
                                     <option value="1">PID (Lens Sensor)</option>
                                     <option value="2">Ambient Tracking</option>
                                     <option value="3">PID-Sync (Follower)</option>
+                                    <option value="4">Minimum Temperature</option>
                                 </select>
                             </div>
                             <!-- Settings for Manual Mode -->
@@ -168,6 +169,18 @@
                                     <small>If this heater is activated, automatically turn on its PID Leader (Heater 2) as well.</small>
                                 </div>
                             </div>
+                            <!-- Settings for Minimum Temperature Mode -->
+                            <div id="heater-0-mode-4" class="mode-settings">
+                                <div class="form-group">
+                                    <label for="heater-0-min-temp">Minimum Temperature (°C)</label>
+                                    <input type="number" id="heater-0-min-temp" step="0.1">
+                                    <small>The heater maintains the higher of two values: this minimum temperature or the dew point target (Dew Point + Offset).</small>
+                                </div>
+                                <div class="form-group"><label for="heater-0-target-offset-4">Target Offset (°C above Dew Point)</label><input type="number" id="heater-0-target-offset-4" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-pid-kp-4">PID Kp</label><input type="number" id="heater-0-pid-kp-4" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-pid-ki-4">PID Ki</label><input type="number" id="heater-0-pid-ki-4" step="0.1"></div>
+                                <div class="form-group"><label for="heater-0-pid-kd-4">PID Kd</label><input type="number" id="heater-0-pid-kd-4" step="0.1"></div>
+                            </div>
                         </div>
 
                         <div id="heater-1">
@@ -182,6 +195,7 @@
                                     <option value="1">PID (Lens Sensor)</option>
                                     <option value="2">Ambient Tracking</option>
                                     <option value="3">PID-Sync (Follower)</option>
+                                    <option value="4">Minimum Temperature</option>
                                 </select>
                             </div>
                             <div id="heater-1-mode-0" class="form-group mode-settings"><label for="heater-1-manual-power">Manual Power (%)</label><input type="number" id="heater-1-manual-power" min="0" max="100"></div>
@@ -206,6 +220,18 @@
                                     <label><input type="checkbox" id="heater-1-auto-enable-leader"> Auto-enable PID Leader</label>
                                     <small>If this heater is activated, automatically turn on its PID Leader (Heater 1) as well.</small>
                                 </div>
+                            </div>
+                            <!-- Settings for Minimum Temperature Mode -->
+                            <div id="heater-1-mode-4" class="mode-settings">
+                                <div class="form-group">
+                                    <label for="heater-1-min-temp">Minimum Temperature (°C)</label>
+                                    <input type="number" id="heater-1-min-temp" step="0.1">
+                                    <small>The heater maintains the higher of two values: this minimum temperature or the dew point target (Dew Point + Offset).</small>
+                                </div>
+                                <div class="form-group"><label for="heater-1-target-offset-4">Target Offset (°C)</label><input type="number" id="heater-1-target-offset-4" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-pid-kp-4">PID Kp</label><input type="number" id="heater-1-pid-kp-4" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-pid-ki-4">PID Ki</label><input type="number" id="heater-1-pid-ki-4" step="0.1"></div>
+                                <div class="form-group"><label for="heater-1-pid-kd-4">PID Kd</label><input type="number" id="heater-1-pid-kd-4" step="0.1"></div>
                             </div>
                         </div>
                         <button class="save-config-button">Save Heater Settings</button>
