@@ -213,14 +213,14 @@ void updateConfig(const JsonObject& doc) {
 
     if (!doc["ps"].isNull()) {
         JsonObjectConst power_startup_states = doc["ps"];
-        config.power_startup_states.dc1 = power_startup_states["d1"] | config.power_startup_states.dc1;
-        config.power_startup_states.dc2 = power_startup_states["d2"] | config.power_startup_states.dc2;
-        config.power_startup_states.dc3 = power_startup_states["d3"] | config.power_startup_states.dc3;
-        config.power_startup_states.dc4 = power_startup_states["d4"] | config.power_startup_states.dc4;
-        config.power_startup_states.dc5 = power_startup_states["d5"] | config.power_startup_states.dc5;
-        config.power_startup_states.usbc12 = power_startup_states["u12"] | config.power_startup_states.usbc12;
-        config.power_startup_states.usb345 = power_startup_states["u34"] | config.power_startup_states.usb345;
-        config.power_startup_states.adj_conv = power_startup_states["adj"] | config.power_startup_states.adj_conv;
+        if (!power_startup_states["d1"].isNull()) config.power_startup_states.dc1 = power_startup_states["d1"];
+        if (!power_startup_states["d2"].isNull()) config.power_startup_states.dc2 = power_startup_states["d2"];
+        if (!power_startup_states["d3"].isNull()) config.power_startup_states.dc3 = power_startup_states["d3"];
+        if (!power_startup_states["d4"].isNull()) config.power_startup_states.dc4 = power_startup_states["d4"];
+        if (!power_startup_states["d5"].isNull()) config.power_startup_states.dc5 = power_startup_states["d5"];
+        if (!power_startup_states["u12"].isNull()) config.power_startup_states.usbc12 = power_startup_states["u12"];
+        if (!power_startup_states["u34"].isNull()) config.power_startup_states.usb345 = power_startup_states["u34"];
+        if (!power_startup_states["adj"].isNull()) config.power_startup_states.adj_conv = power_startup_states["adj"];
     }
 
     if (!doc["ac"].isNull()) {
@@ -238,7 +238,7 @@ void updateConfig(const JsonObject& doc) {
 
     if (!doc["ad"].isNull()) {
         JsonObjectConst auto_dry_obj = doc["ad"];
-        config.sht40_auto_dry.enabled = auto_dry_obj["en"] | config.sht40_auto_dry.enabled;
+        if (!auto_dry_obj["en"].isNull()) config.sht40_auto_dry.enabled = auto_dry_obj["en"];
         config.sht40_auto_dry.humidity_threshold = auto_dry_obj["ht"] | config.sht40_auto_dry.humidity_threshold;
         if (!auto_dry_obj["td"].isNull()) {
             unsigned long duration_sec = auto_dry_obj["td"].as<unsigned long>();
