@@ -21,6 +21,7 @@ type Command struct {
 	Command  string
 	Response chan<- string
 	Error    chan<- error
+	Timeout  time.Duration
 }
 
 // StatusCache stores the latest power status from the device.
@@ -125,6 +126,7 @@ func SendCommand(command string, isHighPriority bool, timeout time.Duration) (st
 		Command:  command,
 		Response: responseChan,
 		Error:    errorChan,
+		Timeout:  timeout,
 	}
 
 	if isHighPriority {
@@ -166,6 +168,11 @@ func ProcessCommands() {
 			continue
 		}
 
+		// Drain input buffer to remove unsolicited data (e.g. boot logs) before sending new command
+		// This ensures the next line we read is likely the response to our command.
+		// We read with a very short timeout until no more data is available.
+		drainInputBuffer(sv241Port)
+
 		logger.Debug("Processing command: %s", cmd.Command)
 		_, err := sv241Port.Write([]byte(cmd.Command + "\n"))
 		if err != nil {
@@ -176,9 +183,9 @@ func ProcessCommands() {
 			continue
 		}
 
-		sv241Port.SetReadTimeout(2 * time.Second)
-		reader := bufio.NewReader(sv241Port)
-		response, err := reader.ReadString('\n')
+		// Use a simple byte-by-byte read to avoid buffering issues with bufio
+		// Use the command's specific timeout for reading
+		response, err := readLine(sv241Port, cmd.Timeout)
 		if err != nil {
 			logger.Error("Serial read failed: %v. Marking port as disconnected.", err)
 			handleDisconnect()
@@ -192,6 +199,54 @@ func ProcessCommands() {
 		logger.Debug("Received response from device: %s", trimmedResponse)
 		cmd.Response <- trimmedResponse
 	}
+}
+
+// drainInputBuffer reads from the port until no more data is available or a timeout occurs.
+func drainInputBuffer(port serial.Port) {
+	// Set a very short timeout for draining
+	port.SetReadTimeout(100 * time.Millisecond)
+	buf := make([]byte, 1024)
+	for {
+		n, err := port.Read(buf)
+		if err != nil || n == 0 {
+			break
+		}
+		// Continue reading until empty
+		if n < len(buf) {
+			break
+		}
+	}
+}
+
+// readLine reads from the port until a newline is encountered or timeout.
+func readLine(port serial.Port, timeout time.Duration) (string, error) {
+	port.SetReadTimeout(timeout)
+	var result []byte
+	buf := make([]byte, 1) // Read byte by byte to avoid over-reading
+	start := time.Now()
+
+	for {
+		if time.Since(start) > timeout {
+			return "", errors.New("read timeout")
+		}
+
+		n, err := port.Read(buf)
+		if err != nil {
+			return "", err
+		}
+		if n > 0 {
+			b := buf[0]
+			if b == '\n' {
+				break
+			}
+			result = append(result, b)
+		} else {
+			// No data yet, wait briefly? Serial.Read should block until data or timeout.
+			// If it returns 0 with no error, it might be non-blocking mode or just empty.
+			// With SetReadTimeout, it should block.
+		}
+	}
+	return string(result), nil
 }
 
 // ManageConnection is a background task that ensures the device stays connected.

@@ -390,8 +390,26 @@ func handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Info("Proxy configuration restored successfully.")
 
-	go serial.Reconnect(conf.SerialPortName)
+	// Synchronously attempt to reconnect so the user comes back to a connected system
+	logger.Info("Restore: Disconnecting current session...")
+	serial.Reconnect("") // Ensure we are disconnected first to free the port
+
+	// Give the OS a moment to release the serial port handle
+	logger.Info("Restore: Waiting for port to release...")
+	time.Sleep(1 * time.Second)
+
+	logger.Info("Restore: attempting immediate auto-detection...")
+	foundPort, err := serial.FindPort()
+	if err == nil {
+		logger.Info("Restore: Immediate auto-detection found port '%s'. Reconnecting...", foundPort)
+		serial.Reconnect(foundPort)
+		fmt.Fprintf(w, "Configuration restored successfully. Connected to %s.", foundPort)
+	} else {
+		logger.Warn("Restore: Immediate auto-detection failed: %v. Background task will retry.", err)
+		// Leave it to the background task
+		go serial.Reconnect("")
+		fmt.Fprint(w, "Configuration restored successfully. Logic will retry connection in background.")
+	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Configuration restored successfully. Auto-detection will now run.")
 }
