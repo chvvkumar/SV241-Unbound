@@ -290,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('proxy-serial-port').disabled = proxyConf.autoDetectPort;
         document.getElementById('proxy-network-port').value = proxyConf.networkPort || 8080;
         document.getElementById('proxy-log-level').value = proxyConf.logLevel || 'INFO';
+        document.getElementById('proxy-history-retention').value = proxyConf.historyRetentionNights || 30;
 
         // Populate Listen Address dropdown
         const listenAddressSelect = document.getElementById('proxy-listen-address');
@@ -611,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
             autoDetectPort: document.getElementById('proxy-auto-detect-port').checked,
             networkPort: parseInt(document.getElementById('proxy-network-port').value, 10) || 8080,
             logLevel: document.getElementById('proxy-log-level').value,
+            historyRetentionNights: parseInt(document.getElementById('proxy-history-retention').value, 10) || 30,
             switchNames: {},
             heaterAutoEnableLeader: {
                 'pwm1': document.getElementById('heater-0-auto-enable-leader').checked,

@@ -17,6 +17,8 @@ type ProxyConfig struct {
 	LogLevel               string            `json:"logLevel"`
 	SwitchNames            map[string]string `json:"switchNames"`
 	HeaterAutoEnableLeader map[string]bool   `json:"heaterAutoEnableLeader"`
+	HistoryRetentionNights int               `json:"historyRetentionNights"`
+	TelemetryInterval      int               `json:"telemetryInterval"` // Seconds
 }
 
 // CombinedConfig defines the structure for a full backup file.
@@ -77,6 +79,8 @@ func Load() error {
 					"pwm1": true,
 					"pwm2": true,
 				},
+				HistoryRetentionNights: 10, // Default to 10 nights
+				TelemetryInterval:      10, // Default to 10 seconds
 			}
 			for _, internalName := range SwitchIDMap {
 				proxyConfig.SwitchNames[internalName] = internalName
@@ -126,6 +130,13 @@ func Load() error {
 	if _, exists := proxyConfig.HeaterAutoEnableLeader["pwm2"]; !exists {
 		logger.Warn("Missing auto-enable setting for 'pwm2', adding with default 'true'.")
 		proxyConfig.HeaterAutoEnableLeader["pwm2"] = true
+	}
+	// Defaults for new fields
+	if proxyConfig.HistoryRetentionNights == 0 {
+		proxyConfig.HistoryRetentionNights = 10
+	}
+	if proxyConfig.TelemetryInterval == 0 {
+		proxyConfig.TelemetryInterval = 10
 	}
 
 	// Wenn das Feld in einer alten Konfigurationsdatei fehlt, setzen wir es auf true,

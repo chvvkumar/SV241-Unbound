@@ -16,6 +16,7 @@ import (
 	"sv241pro-alpaca-proxy/internal/logger"
 	"sv241pro-alpaca-proxy/internal/logstream"
 	"sv241pro-alpaca-proxy/internal/serial"
+	"sv241pro-alpaca-proxy/internal/telemetry"
 )
 
 // Start initializes and starts the HTTP server, serving the frontend from the provided filesystem.
@@ -32,6 +33,10 @@ func Start(frontendFS fs.FS, appVersion string) {
 	}
 
 	logger.Info("Starting Alpaca API server on %s...", addr)
+
+	// Initialize CSV Telemetry Logger
+	telemetry.Init()
+
 	if err := http.Serve(listener, nil); err != nil {
 		logger.Fatal("HTTP server failed: %v", err)
 	}
@@ -67,6 +72,9 @@ func setupRoutes(frontendFS fs.FS, appVersion string) {
 	http.HandleFunc("/api/v1/firmware/version", handleGetFirmwareVersion)
 	http.HandleFunc("/api/v1/backup/create", handleCreateBackup)
 	http.HandleFunc("/api/v1/backup/restore", handleRestoreBackup)
+
+	// --- Telemetry History API ---
+	http.HandleFunc("/api/v1/telemetry/history", telemetry.HandleGetHistory)
 
 	// New settings endpoint combines getting and setting proxy config
 	http.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {

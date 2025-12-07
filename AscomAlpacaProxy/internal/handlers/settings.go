@@ -63,7 +63,10 @@ func HandlePostSettings(w http.ResponseWriter, r *http.Request) {
 	conf.AutoDetectPort = newConfig.AutoDetectPort
 	conf.LogLevel = newConfig.LogLevel
 	conf.SwitchNames = newConfig.SwitchNames
+	conf.SwitchNames = newConfig.SwitchNames
 	conf.HeaterAutoEnableLeader = newConfig.HeaterAutoEnableLeader
+	conf.HistoryRetentionNights = newConfig.HistoryRetentionNights
+	conf.TelemetryInterval = newConfig.TelemetryInterval
 
 	// Apply log level immediately
 	logger.SetLevelFromString(conf.LogLevel)
