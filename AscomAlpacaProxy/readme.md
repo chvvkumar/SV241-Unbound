@@ -12,6 +12,7 @@ The project also includes a standalone ASCOM Alpaca proxy driver written in Go. 
   - [Manually Creating a Firewall Rule](#manually-creating-a-firewall-rule)
   - [ASCOM Switch Device Actions](#ascom-switch-device-actions)
 - [Accessing the Setup Page](#accessing-the-setup-page)
+- [Telemetry & Logging](#telemetry--logging)
 - [Driver Installation](#driver-installation)
   - [Easy Driver Creation (Recommended)](#easy-driver-creation-recommended)
   - [Manual Driver Creation (Fallback)](#manual-driver-creation-fallback)
@@ -25,6 +26,8 @@ The project also includes a standalone ASCOM Alpaca proxy driver written in Go. 
 *   Auto-detection of the SV241 serial port.
 *   Exposes all power outputs as a single ASCOM `Switch` device.
 *   Exposes environmental sensors as an ASCOM `ObservingConditions` device.
+*   **Modern Web Interface:** A responsive, dark-themed dashboard with glassmorphism effects.
+*   **Telemetry History:** Automatic CSV logging of all sensor data with an interactive historical chart visualization.
 *   Provides a web-based setup page for configuration, including network settings.
 *   Manages the connection to the device automatically.
 *   Desktop notifications for device connection and disconnection events.
@@ -108,6 +111,23 @@ The primary way to configure the SV241 Alpaca Proxy is through its built-in web 
         [INFO] Starting Alpaca API server on port 8081...
         ```
     *   You would then use that port in the URL: `http://localhost:8081/setup`
+
+
+## Telemetry & Logging
+
+The proxy driver includes a robust telemetry system that logs sensor data to CSV files and provides interactive visualization.
+
+### Automatic CSV Logging
+*   **Frequency:** Telemetry data is logged every 10 seconds (configurable).
+*   **Format:** Standard CSV files stored in `AscomAlpaca/logs/`.
+*   **Rotation:** Logs use a "Noon-to-Noon" rotation strategy. This means a single "night's" imaging session is contained in one file, even if it spans across midnight. A new file is created automatically at 12:00 PM local time.
+*   **Retention:** Old logs are automatically pruned. You can configure the number of nights to retain (default: 10) in the setup page.
+
+### Interactive Visualization
+The web interface features a built-in telemetry viewer:
+*   Click on any sensor value (Voltage, Current, Temp, etc.) in the **Live Telemetry** panel to open the history chart.
+*   **Interactive Chart:** Zoom and pan through the data to analyze power consumption or environmental changes over time.
+*   **Historical Data:** Use the dropdown menu in the modal to load and view data from previous recording sessions.
 
 
 ## Driver Installation
@@ -215,6 +235,7 @@ Here is an example of the `proxy_config.json` file structure:
   "serialPortName": "COM9",
   "networkPort": 8080,
   "logLevel": "DEBUG",
+  "historyRetentionNights": 30,
   "switchNames": {
     "adj_conv": "Adjustable Voltage",
     "dc1": "Camera",
@@ -235,6 +256,7 @@ Here is an example of the `proxy_config.json` file structure:
 *   `serialPortName` (string): The name of the serial port for the SV241 device (e.g., `"COM9"`). If this string is empty (`""`), the proxy will attempt to auto-detect the port on startup.
 *   `networkPort` (integer): The TCP port on which the Alpaca API server will listen for connections from client applications. The default is `8080`. A restart of the proxy is required for changes to this value to take effect.
 *   `logLevel` (string): Controls the verbosity of the log file. Valid values are `"ERROR"`, `"WARN"`, `"INFO"`, and `"DEBUG"`. This setting is applied live when changed.
+*   `historyRetentionNights` (integer): The number of days/nights to retain CSV telemetry logs. Older files are automatically deleted at startup. Default is `10`.
 *   `switchNames` (object): A map that allows you to assign custom, user-friendly names to the internal switch identifiers. The `key` is the internal name (e.g., `"dc1"`) and the `value` is the custom name you want to see in ASCOM clients and the web interface.
 
 ### Log Level Configuration

@@ -62,7 +62,12 @@ You can now control the power outputs and read sensor data directly from your ma
 
 The proxy application is a crucial part of the system, translating the device's serial commands into standard ASCOM Alpaca APIs. It runs on your computer, connects to the controller via USB, and exposes its functions to astronomy software.
 
-It includes features like auto-detection, a web-based setup page, and custom ASCOM actions.
+
+It includes features like auto-detection and custom ASCOM actions.
+
+**Key Features:**
+*   **Rich Web Interface:** A modern, responsive dark-themed dashboard for full control and configuration.
+*   **Telemetry History:** Built-in interactive charts for analyzing power and environmental data over time.
 
 **For detailed information on its features, configuration, and usage, please see the dedicated documentation:**
 
