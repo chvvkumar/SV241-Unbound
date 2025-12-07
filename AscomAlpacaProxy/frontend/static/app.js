@@ -464,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Cannot save device configuration: Device is not connected.');
                 return;
             }
-            deviceResponseElement.textContent = "Saving sensor settings...";
+            showResponse("Saving sensor settings...");
             const response = await fetch('/api/v1/config/set', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -472,13 +472,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-            deviceResponseElement.textContent = "Sensor settings saved successfully!";
+            showResponse("Sensor settings saved successfully!");
             alert('Sensor settings saved successfully!');
             resetUnsavedIndicators();
             fetchConfig();
         } catch (error) {
             console.error('Error saving sensor settings:', error);
-            deviceResponseElement.textContent = `Error saving sensor settings: ${error.message}`;
+            showResponse(`Error saving sensor settings: ${error.message}`, true);
             alert('Error saving sensor settings.');
         }
     }
