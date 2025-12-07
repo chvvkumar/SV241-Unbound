@@ -32,14 +32,17 @@ var (
 	SwitchIDMap = map[int]string{
 		0: "dc1", 1: "dc2", 2: "dc3", 3: "dc4", 4: "dc5",
 		5: "usbc12", 6: "usb345", 7: "adj_conv", 8: "pwm1", 9: "pwm2",
+		10: "master_power",
 	}
 	ShortSwitchIDMap = map[string]string{
 		"dc1": "d1", "dc2": "d2", "dc3": "d3", "dc4": "d4", "dc5": "d5",
 		"usbc12": "u12", "usb345": "u34", "adj_conv": "adj", "pwm1": "pwm1", "pwm2": "pwm2",
+		"master_power": "all",
 	}
 	ShortSwitchKeyByID = map[int]string{
 		0: "d1", 1: "d2", 2: "d3", 3: "d4", 4: "d5",
 		5: "u12", 6: "u34", 7: "adj", 8: "pwm1", 9: "pwm2",
+		10: "all",
 	}
 
 	proxyConfig     *ProxyConfig // Singleton instance

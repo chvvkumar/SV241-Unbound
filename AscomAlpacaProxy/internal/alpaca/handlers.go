@@ -166,6 +166,30 @@ func (a *API) HandleSwitchGetSwitch(w http.ResponseWriter, r *http.Request) {
 	shortKey := config.ShortSwitchKeyByID[id]
 	serial.Status.RLock()
 	defer serial.Status.RUnlock()
+
+	if shortKey == "all" {
+		allOn := true
+		// Loop through all defined switches (except the master itself)
+		for _, key := range config.ShortSwitchKeyByID {
+			if key == "all" {
+				continue
+			}
+			if val, ok := serial.Status.Data[key]; ok {
+				if val.(float64) < 1.0 {
+					allOn = false
+					break
+				}
+			} else {
+				// If a switch status is missing, we can't be sure, but let's assume OFF for safety,
+				// or just ignore it. Assuming OFF implies Master is OFF.
+				allOn = false
+				break
+			}
+		}
+		BoolResponse(w, r, allOn)
+		return
+	}
+
 	if val, ok := serial.Status.Data[shortKey]; ok {
 		BoolResponse(w, r, val.(float64) >= 1.0)
 	} else {
@@ -181,6 +205,31 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 	shortKey := config.ShortSwitchKeyByID[id]
 	serial.Status.RLock()
 	defer serial.Status.RUnlock()
+
+	if shortKey == "all" {
+		allOn := true
+		for _, key := range config.ShortSwitchKeyByID {
+			if key == "all" {
+				continue
+			}
+			if val, ok := serial.Status.Data[key]; ok {
+				if val.(float64) < 1.0 {
+					allOn = false
+					break
+				}
+			} else {
+				allOn = false
+				break
+			}
+		}
+		var switchValue float64
+		if allOn {
+			switchValue = 1.0
+		}
+		FloatResponse(w, r, switchValue)
+		return
+	}
+
 	if val, ok := serial.Status.Data[shortKey]; ok {
 		var switchValue float64
 		if val.(float64) >= 1.0 {
