@@ -356,7 +356,35 @@
         </div> <!-- End dashboard-grid -->
     </div> <!-- End container -->
 
+    <!-- Chart.js Libraries -->
+    <script src="/static/chart.umd.js" defer></script>
+    <script src="/static/chartjs-adapter-date-fns.bundle.min.js" defer></script>
+    <script src="/static/hammer.min.js" defer></script>
+    <script src="/static/chartjs-plugin-zoom.min.js" defer></script>
     <script src="/static/app.js" defer></script>
+
+    <!-- Telemetry Modal -->
+    <div id="telemetry-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel"
+            style="width: 90%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2 id="telemetry-modal-title">Telemetry History</h2>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <select id="telemetry-date-select" class="theme-select">
+                        <option value="">Current & Previous Night</option>
+                    </select>
+                    <button id="close-telemetry-modal" class="close-btn">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex: 1; min-height: 0; position: relative;">
+                <canvas id="telemetry-chart"></canvas>
+            </div>
+            <div class="modal-footer"
+                style="padding: 0.5rem; text-align: center; font-size: 0.8rem; color: var(--text-muted);">
+                Scan/Pinch to Zoom, Drag to Pan. Double-click to Reset Zoom.
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

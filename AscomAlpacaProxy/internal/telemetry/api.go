@@ -30,13 +30,33 @@ type DataPoint struct {
 }
 
 // HandleGetHistory reads from the CSV logs and returns JSON data.
-// By default, it returns data from the current "night" and the previous "night".
+// It supports a "date" query parameter (YYYY-MM-DD). If provided, it returns data for that specific night.
+// Otherwise, it returns data from the current "night" and the previous "night".
 func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
-	// Simple strategy: Locate the last 2 log files.
-	logFiles, err := getRecentLogFiles(2)
-	if err != nil {
-		http.Error(w, "Failed to list log files", http.StatusInternalServerError)
-		return
+	dateParam := r.URL.Query().Get("date")
+	var logFiles []string
+	var err error
+
+	if dateParam != "" {
+		// Validate format
+		if _, err := time.Parse("2006-01-02", dateParam); err != nil {
+			http.Error(w, "Invalid date format. Use YYYY-MM-DD.", http.StatusBadRequest)
+			return
+		}
+		filename := fmt.Sprintf("telemetry_%s.csv", dateParam)
+		// Verify file exists
+		if _, err := os.Stat(filepath.Join(GetLogsDir(), filename)); os.IsNotExist(err) {
+			http.Error(w, "Log file not found for this date", http.StatusNotFound)
+			return
+		}
+		logFiles = []string{filename}
+	} else {
+		// Default strategy: Locate the last 2 log files.
+		logFiles, err = getRecentLogFiles(2)
+		if err != nil {
+			http.Error(w, "Failed to list log files", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	var history []DataPoint
@@ -48,12 +68,14 @@ func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 			logger.Warn("Failed to open log file %s: %v", filename, err)
 			continue
 		}
-		defer file.Close()
+		// We can't use defer in a loop for file closing if we have many files,
+		// but here it's max 2 or 1, so it's acceptable, but manual close is better practice.
 
 		reader := csv.NewReader(file)
 		// Skip header if present (heuristic: first field is "timestamp")
 		firstLine, err := reader.Read()
 		if err != nil {
+			file.Close()
 			continue
 		}
 		if firstLine[0] != "timestamp" {
@@ -75,10 +97,38 @@ func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 				history = append(history, dp)
 			}
 		}
+		file.Close()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(history)
+}
+
+// HandleGetLogDates returns a list of available telemetry log dates (YYYY-MM-DD).
+func HandleGetLogDates(w http.ResponseWriter, r *http.Request) {
+	dir := GetLogsDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		http.Error(w, "Failed to list log directory", http.StatusInternalServerError)
+		return
+	}
+
+	var dates []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "telemetry_") && strings.HasSuffix(entry.Name(), ".csv") {
+			// Extract date part: telemetry_2023-10-27.csv -> 2023-10-27
+			name := entry.Name()
+			if len(name) >= 24 { // telemetry_YYYY-MM-DD.csv is 24 chars
+				dateStr := name[10 : len(name)-4]
+				dates = append(dates, dateStr)
+			}
+		}
+	}
+	// Sort descending (newest first)
+	sort.Sort(sort.Reverse(sort.StringSlice(dates)))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(dates)
 }
 
 func getRecentLogFiles(count int) ([]string, error) {

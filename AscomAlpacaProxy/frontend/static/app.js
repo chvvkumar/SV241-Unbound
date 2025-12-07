@@ -1065,4 +1065,169 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     init();
+
+    // --- Telemetry Chart Logic ---
+    let telemetryChart = null;
+    let currentMetric = 'v'; // Default to voltage
+    let currentMetricLabel = 'Voltage';
+
+    const modal = document.getElementById('telemetry-modal');
+    const closeModalBtn = document.getElementById('close-telemetry-modal');
+    const dateSelect = document.getElementById('telemetry-date-select');
+
+    // Click handler for Voltage (only one enabled for now)
+    const statusV = document.getElementById('status-v');
+    if (statusV) {
+        statusV.classList.add('clickable-sensor');
+        statusV.addEventListener('click', () => openTelemetryModal('v', 'Voltage'));
+    }
+
+    // Modal Controls
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeTelemetryModal);
+    }
+
+    // Close on click outside
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeTelemetryModal();
+        });
+    }
+
+    if (dateSelect) {
+        dateSelect.addEventListener('change', (e) => {
+            loadTelemetryData(e.target.value);
+        });
+    }
+
+    async function openTelemetryModal(metric, title) {
+        currentMetric = metric;
+        currentMetricLabel = title;
+        document.getElementById('telemetry-modal-title').textContent = `${title} History`;
+
+        // Populate dates
+        await loadDateOptions();
+
+        // Show modal
+        modal.classList.remove('hidden');
+
+        // Load initial data (current log)
+        dateSelect.value = ""; // Default to current
+        loadTelemetryData("");
+    }
+
+    function closeTelemetryModal() {
+        modal.classList.add('hidden');
+        if (telemetryChart) {
+            telemetryChart.destroy();
+            telemetryChart = null;
+        }
+    }
+
+    async function loadDateOptions() {
+        dateSelect.innerHTML = '<option value="">Current & Previous Night</option>';
+        try {
+            const res = await fetch('/api/v1/telemetry/dates');
+            if (res.ok) {
+                const dates = await res.json();
+                dates.forEach(date => {
+                    const opt = document.createElement('option');
+                    opt.value = date;
+                    opt.textContent = date;
+                    dateSelect.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error("Failed to load dates", e);
+        }
+    }
+
+    async function loadTelemetryData(dateParam) {
+        let url = '/api/v1/telemetry/history';
+        if (dateParam) {
+            url += `?date=${dateParam}`;
+        }
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("Failed to fetch history");
+            const data = await res.json();
+            renderChart(data);
+        } catch (e) {
+            console.error(e);
+            alert("Could not load telemetry data");
+        }
+    }
+
+    function renderChart(data) {
+        const ctx = document.getElementById('telemetry-chart').getContext('2d');
+
+        // Destroy existing
+        if (telemetryChart) telemetryChart.destroy();
+
+        // Prepare data
+        // API returns timestamp in seconds (Unix). Chart.js needs millis or ISO string.
+        // Assuming DataPoint.Timestamp is int64 Unix seconds.
+        const chartData = data.map(dp => ({
+            x: dp.t * 1000,
+            y: dp[currentMetric]
+        })).filter(pt => !isNaN(pt.y)); // Filter out nulls/NaNs
+
+        telemetryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: currentMetricLabel,
+                    data: chartData,
+                    borderColor: '#00d2ff',
+                    backgroundColor: 'rgba(0, 210, 255, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0, // Hide points for performance on large datasets
+                    pointHitRadius: 10,
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            displayFormats: {
+                                hour: 'HH:mm',
+                                minute: 'HH:mm'
+                            },
+                            tooltipFormat: 'yyyy-MM-dd HH:mm:ss'
+                        },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#ccc' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#ccc' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    zoom: {
+                        pan: { enabled: true, mode: 'x' },
+                        zoom: {
+                            wheel: { enabled: true },
+                            pinch: { enabled: true },
+                            mode: 'x',
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
+        });
+
+        // Double click to reset zoom
+        document.getElementById('telemetry-chart').ondblclick = () => telemetryChart.resetZoom();
+    }
 });
