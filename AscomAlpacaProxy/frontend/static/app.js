@@ -344,6 +344,12 @@ document.addEventListener('DOMContentLoaded', () => {
             populateSwitchNameInputs(proxyConf.switchNames);
             populatePowerControls(proxyConf.switchNames);
             populateStartupStateLabels(proxyConf.switchNames);
+
+            // Update Master Power label if configured
+            if (proxyConf.switchNames['master_power']) {
+                const masterLabel = document.getElementById('master-power-label');
+                if (masterLabel) masterLabel.textContent = proxyConf.switchNames['master_power'];
+            }
         }
     }
 
