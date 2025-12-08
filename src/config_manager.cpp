@@ -12,7 +12,7 @@ const char* configFile = "/config.bin"; // Using a binary file now
 
 // Populates the config struct with default values, but does not save.
 void populateDefaultConfig() {
-    config.sensor_offsets = {0.0f, -10.0f, 0.0f, 0.0f, 0.0f};
+    config.sensor_offsets = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     config.update_intervals_ms = {1000, 1000, 1000};
     config.power_startup_states = {false, false, false, false, false, false, false, false};
     config.averaging_counts = {5, 5, 5, 5, 5};
