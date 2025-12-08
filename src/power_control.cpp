@@ -109,7 +109,9 @@ void get_power_status_json(JsonDocument& doc) {
         bool enabled = get_dew_heater_state(0);
         int mode = get_dew_heater_mode(0); // 0=Manual, 1=Auto
 
-        if (enabled && mode == 1) {
+        // If Enabled AND NOT in Manual Mode (0), report 'true' (Active) 
+        // even if current power is 0. This covers Auto(1), Ambient(2), and Follower(3).
+        if (enabled && mode != 0) {
              status[name] = true;
         } else if (enabled && mode == 0) {
              status[name] = get_heater_power(0); 
@@ -120,7 +122,9 @@ void get_power_status_json(JsonDocument& doc) {
         bool enabled = get_dew_heater_state(1);
         int mode = get_dew_heater_mode(1);
 
-        if (enabled && mode == 1) {
+        // If Enabled AND NOT in Manual Mode (0), report 'true' (Active)
+        // even if current power is 0. This covers Auto(1), Ambient(2), and Follower(3).
+        if (enabled && mode != 0) {
              status[name] = true;
         } else if (enabled && mode == 0) {
              status[name] = get_heater_power(1);
