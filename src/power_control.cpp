@@ -95,11 +95,11 @@ void get_power_status_json(JsonDocument& doc) {
   for (int i = 0; i < POWER_OUTPUT_COUNT; i++) {
     const char* name = get_power_output_name((PowerOutput)i);
     if ((PowerOutput)i == POWER_ADJ_CONV) {
-        // Special report for Adjustable Converter: Return target voltage if ON, else 0
+        // Special report for Adjustable Converter: Return target voltage if ON, else false (OFF)
         if (power_output_states[i]) {
              status[name] = get_adjustable_voltage_target();
         } else {
-             status[name] = 0;
+             status[name] = false;
         }
     } else {
         // Standard On/Off

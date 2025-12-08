@@ -255,9 +255,9 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 		var switchValue float64
 		// Special handling for Adjustable Voltage (ID 7) if enabled
 		if id == 7 && config.Get().EnableAlpacaVoltageControl {
-			// Check if the device reports the output is actually OFF
-			statusVal, ok := val.(float64)
-			if ok && statusVal < 1.0 {
+			// Check if the device reports the output is actually OFF (boolean false)
+			// Firmware reports boolean 'false' for OFF, and float voltage for ON.
+			if boolVal, isBool := val.(bool); isBool && !boolVal {
 				switchValue = 0.0 // Device is OFF
 			} else {
 				// Device is ON. Return cached target to reflect intended voltage.
@@ -269,11 +269,21 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 					switchValue = target
 				} else {
 					// Fallback: trust the reported status value if target is unknown
-					switchValue = statusVal
+					if v, ok := val.(float64); ok {
+						switchValue = v
+					} else {
+						switchValue = 0.0
+					}
 				}
 			}
 		} else {
-			if val.(float64) >= 1.0 {
+			// Standard Logic (or Voltage Control Disabled)
+			// Handle potential Boolean or Float values
+			if v, isFloat := val.(float64); isFloat {
+				if v >= 1.0 {
+					switchValue = 1.0
+				}
+			} else if b, isBool := val.(bool); isBool && b {
 				switchValue = 1.0
 			}
 		}
