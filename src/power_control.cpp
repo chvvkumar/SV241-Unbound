@@ -101,6 +101,32 @@ void get_power_status_json(JsonDocument& doc) {
         } else {
              status[name] = false;
         }
+    } else if ((PowerOutput)i == POWER_PWM1) {
+        // Correct logic for Auto Mode:
+        // If Enabled AND in Auto Mode, report 'true` (Active) even if current power is 0.
+        // This ensures the Switch UI stays ON.
+        // If in Manual Mode, report the actual power level (0-100).
+        bool enabled = get_dew_heater_state(0);
+        int mode = get_dew_heater_mode(0); // 0=Manual, 1=Auto
+
+        if (enabled && mode == 1) {
+             status[name] = true;
+        } else if (enabled && mode == 0) {
+             status[name] = get_heater_power(0); 
+        } else {
+             status[name] = false;
+        }
+    } else if ((PowerOutput)i == POWER_PWM2) {
+        bool enabled = get_dew_heater_state(1);
+        int mode = get_dew_heater_mode(1);
+
+        if (enabled && mode == 1) {
+             status[name] = true;
+        } else if (enabled && mode == 0) {
+             status[name] = get_heater_power(1);
+        } else {
+             status[name] = false;
+        }
     } else {
         // Standard On/Off
         status[name] = (int)power_output_states[i];
@@ -143,12 +169,24 @@ void handle_set_power_command(JsonVariant set_command) {
 
       // Special handling for PWM channels
       if ((PowerOutput)i == POWER_PWM1 || (PowerOutput)i == POWER_PWM2) {
-          // ... (existing PWM logic, which was reverted by user but might exist in file if I messed up revert?)
-          // Wait, user reverted PWM logic. I should just treat PWM as binary here unless I am restoring PWM too?
-          // User said "Alpaca Override" for Voltage, he didn't say restore PWM.
-          // BUT, I should check if my previous edits left power_control.cpp in a mixed state.
-          // Re-reading power_control.cpp showed standard logic.
-          // I will stick to standard binary for PWM as agreed.
+          int heater_idx = ((PowerOutput)i == POWER_PWM1) ? 0 : 1;
+          
+          if (set_obj[name].is<bool>()) {
+               bool state = set_obj[name].as<bool>();
+               // If turning ON via boolean, reset RAM override to -1 (use config default)
+               if (state) set_dew_heater_pwm_ram(heater_idx, -1);
+               // Wait, don't reset to -1 on true, or we lose custom setting if user just toggles switch?
+               // Actually for Alpaca, "True" usually means "On at default". 
+               // But if we want persistence of session, maybe don't reset?
+               // Let's stick to: Boolean TRUE = Reset to Config (Safe Default). Integer = Override.
+               set_power_output((PowerOutput)i, state);
+          } else if (set_obj[name].is<int>() || set_obj[name].is<float>()) {
+               int pwm = set_obj[name].as<int>();
+               pwm = constrain(pwm, 0, 100);
+               set_dew_heater_pwm_ram(heater_idx, pwm);
+               set_power_output((PowerOutput)i, true);
+          }
+          continue;
       } 
       
       // Standard handling for all (including PWM if not special)

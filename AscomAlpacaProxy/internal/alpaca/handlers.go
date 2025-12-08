@@ -196,13 +196,24 @@ func (a *API) HandleSwitchGetSwitch(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if val, ok := serial.Status.Data[key]; ok {
-				if val.(float64) < 1.0 {
+				// Handle both float64 (active value) and bool (false=off)
+				isOn := false
+				if boolVal, isBool := val.(bool); isBool {
+					if boolVal {
+						isOn = true
+					}
+				} else if floatVal, isFloat := val.(float64); isFloat {
+					if floatVal >= 1.0 {
+						isOn = true
+					}
+				}
+
+				if !isOn {
 					allOn = false
 					break
 				}
 			} else {
-				// If a switch status is missing, we can't be sure, but let's assume OFF for safety,
-				// or just ignore it. Assuming OFF implies Master is OFF.
+				// If a switch status is missing, we can't be sure, but let's assume OFF for safety.
 				allOn = false
 				break
 			}
@@ -234,7 +245,19 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 				continue
 			}
 			if val, ok := serial.Status.Data[key]; ok {
-				if val.(float64) < 1.0 {
+				// Handle both float64 (active value) and bool (false=off)
+				isOn := false
+				if boolVal, isBool := val.(bool); isBool {
+					if boolVal {
+						isOn = true
+					}
+				} else if floatVal, isFloat := val.(float64); isFloat {
+					if floatVal >= 1.0 {
+						isOn = true
+					}
+				}
+
+				if !isOn {
 					allOn = false
 					break
 				}
@@ -278,10 +301,36 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 			}
 		} else {
 			// Standard Logic (or Voltage Control Disabled)
+			// Check for PWM Manual Mode to allow > 1.0
+			isManualPWM := false
+			if id == 8 || id == 9 {
+				heaterIdx := 0
+				if id == 9 {
+					heaterIdx = 1
+				}
+
+				serial.Status.RLock()
+				dmVal, found := serial.Status.Data["dm"]
+				serial.Status.RUnlock()
+
+				if found {
+					if dmArray, ok := dmVal.([]interface{}); ok && heaterIdx < len(dmArray) {
+						modeFloat, isFloat := dmArray[heaterIdx].(float64)
+						if isFloat && int(modeFloat) == 0 {
+							isManualPWM = true
+						}
+					}
+				}
+			}
+
 			// Handle potential Boolean or Float values
 			if v, isFloat := val.(float64); isFloat {
-				if v >= 1.0 {
-					switchValue = 1.0
+				if isManualPWM {
+					switchValue = v // Return full value (e.g. 75.0)
+				} else {
+					if v >= 1.0 {
+						switchValue = 1.0 // Clamp to binary for Auto/Standard
+					}
 				}
 			} else if b, isBool := val.(bool); isBool && b {
 				switchValue = 1.0
@@ -326,6 +375,42 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 	var command string
 	var newVoltageTarget float64 = -1.0
 
+	// Special handling for PWM (ID 8, 9) if in Manual Mode (Lightweight check)
+	heaterIdx := -1
+	if id == 8 {
+		heaterIdx = 0
+	} else if id == 9 {
+		heaterIdx = 1
+	}
+
+	if heaterIdx >= 0 {
+		// Check Mode from Status Cache
+		isManual := false
+		serial.Status.RLock()
+		dmVal, found := serial.Status.Data["dm"]
+		serial.Status.RUnlock()
+
+		if found {
+			if dmArray, ok := dmVal.([]interface{}); ok && heaterIdx < len(dmArray) {
+				modeFloat, isFloat := dmArray[heaterIdx].(float64)
+				if isFloat && int(modeFloat) == 0 {
+					isManual = true
+				}
+			}
+		}
+
+		if isManual {
+			if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
+				value, _ := strconv.ParseFloat(valueStr, 64)
+				command = fmt.Sprintf(`{"set":{"%s":%.0f}}`, shortKey, value)
+			} else {
+				// Use "true"/"false" so firmware applies default manual power or ON state
+				command = fmt.Sprintf(`{"set":{"%s":%t}}`, shortKey, state)
+			}
+			goto SendCommand
+		}
+	}
+
 	if id == 7 && config.Get().EnableAlpacaVoltageControl {
 		if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
 			// If Value is provided, set specific voltage
@@ -341,6 +426,8 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 		command = fmt.Sprintf(`{"set":{"%s":%t}}`, shortKey, state)
 	}
 
+SendCommand:
+
 	responseJSON, err := serial.SendCommand(command, true, 0)
 	if err != nil {
 		ErrorResponse(w, r, http.StatusInternalServerError, http.StatusInternalServerError, fmt.Sprintf("Failed to send command: %v", err))
@@ -354,11 +441,29 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 		serial.VoltageMutex.Unlock()
 	}
 
-	var statusData map[string]map[string]interface{}
-	if json.Unmarshal([]byte(responseJSON), &statusData) == nil {
-		serial.Status.Lock()
-		serial.Status.Data = statusData["status"]
-		serial.Status.Unlock()
+	// Parse response which can contain mixed types ("status" object and "dm" array)
+	var rootData map[string]interface{}
+	if json.Unmarshal([]byte(responseJSON), &rootData) == nil {
+		if statusMap, ok := rootData["status"].(map[string]interface{}); ok {
+			serial.Status.Lock()
+
+			// Inject "dm" (Dew Mode) array into the status map so handlers can find it easily
+			if dmVal, found := rootData["dm"]; found {
+				statusMap["dm"] = dmVal
+			} else {
+				// If not found in response (e.g. from SET command), preserve existing DM from cache
+				// We must do this before overwriting serial.Status.Data
+				// ALREADY LOCKED via serial.Status.Lock() above, so we can access directly.
+				if existingDM, exists := serial.Status.Data["dm"]; exists {
+					statusMap["dm"] = existingDM
+				}
+			}
+
+			serial.Status.Data = statusMap
+			serial.Status.Unlock()
+		} else {
+			logger.Warn("Status JSON missing 'status' object after set command.")
+		}
 	} else {
 		logger.Warn("Failed to unmarshal status JSON from device after set command. Raw data: %s", responseJSON)
 	}
@@ -405,6 +510,33 @@ func (a *API) HandleSwitchMaxSwitchValue(w http.ResponseWriter, r *http.Request)
 			FloatResponse(w, r, 15.0)
 			return
 		}
+
+		// Lightweight PWM limit based on Dew Mode
+		// Status contains "dm": [mode1, mode2]
+		heaterIdx := -1
+		if id == 8 {
+			heaterIdx = 0
+		} else if id == 9 {
+			heaterIdx = 1
+		}
+
+		if heaterIdx >= 0 {
+			serial.Status.RLock()
+			dmVal, found := serial.Status.Data["dm"]
+			serial.Status.RUnlock()
+
+			if found {
+				if dmArray, ok := dmVal.([]interface{}); ok && heaterIdx < len(dmArray) {
+					// JSON numbers come as float64 usually
+					modeFloat, isFloat := dmArray[heaterIdx].(float64)
+					if isFloat && int(modeFloat) == 0 { // 0 = Manual
+						FloatResponse(w, r, 100.0)
+						return
+					}
+				}
+			}
+		}
+
 		FloatResponse(w, r, 1.0)
 	}
 }

@@ -431,21 +431,34 @@ func performCacheUpdate() {
 	logger.Debug("Performing on-demand cache update.")
 	statusJSON, err := SendCommand(`{"get":"status"}`, false, 0)
 	if err == nil {
-		var statusData map[string]map[string]interface{}
-		if json.Unmarshal([]byte(statusJSON), &statusData) == nil {
+		var rootData map[string]interface{}
+		// Unmarshal into generic map because we have mixed types ("status" object, "dm" array)
+		if json.Unmarshal([]byte(statusJSON), &rootData) == nil {
 			logger.Debug("Successfully unmarshaled status cache data.")
-			Status.Lock()
-			Status.Data = statusData["status"]
 
-			// Sync ActiveVoltageTarget from firmware report if available
-			if adjVal, ok := Status.Data["adj"]; ok {
-				if adjFloat, ok := adjVal.(float64); ok && adjFloat > 0 {
-					VoltageMutex.Lock()
-					ActiveVoltageTarget = adjFloat
-					VoltageMutex.Unlock()
+			// Extract "status" block
+			if statusMap, ok := rootData["status"].(map[string]interface{}); ok {
+				Status.Lock()
+
+				// Inject "dm" (Dew Mode) array into the status map so handlers can find it easily
+				if dmVal, found := rootData["dm"]; found {
+					statusMap["dm"] = dmVal
 				}
+
+				Status.Data = statusMap
+
+				// Sync ActiveVoltageTarget from firmware report if available
+				if adjVal, ok := Status.Data["adj"]; ok {
+					if adjFloat, ok := adjVal.(float64); ok && adjFloat > 0 {
+						VoltageMutex.Lock()
+						ActiveVoltageTarget = adjFloat
+						VoltageMutex.Unlock()
+					}
+				}
+				Status.Unlock()
+			} else {
+				logger.Warn("Status JSON missing 'status' object")
 			}
-			Status.Unlock()
 		} else {
 			logger.Warn("Failed to unmarshal status JSON from device. Raw data: %s", statusJSON)
 		}

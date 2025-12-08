@@ -99,6 +99,13 @@ void serial_command_task(void *pvParameters) {
             String output_buffer;
             JsonDocument status_doc;
             get_power_status_json(status_doc);
+            
+            // Piggyback Dew Heater Modes onto status for lightweight detection
+            JsonArray dew_modes = status_doc["dm"].to<JsonArray>();
+            for(int i=0; i<MAX_DEW_HEATERS; i++) {
+                dew_modes.add(get_dew_heater_mode(i));
+            }
+
             serializeJson(status_doc, output_buffer);
             
             xSemaphoreTake(serial_mutex, portMAX_DELAY);

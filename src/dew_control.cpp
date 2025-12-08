@@ -11,6 +11,25 @@
 // --- Private State ---
 static bool heater_enabled[MAX_DEW_HEATERS];
 static int heater_power[MAX_DEW_HEATERS] = {0}; // Live power percentage (0-100)
+static int ram_pwm_overrides[MAX_DEW_HEATERS] = {-1, -1}; // RAM overrides
+
+// --- Public Helper ---
+int get_heater_power(int heater_index) {
+    if (heater_index < 0 || heater_index >= MAX_DEW_HEATERS) return 0;
+
+    // If in Manual Mode and a RAM override is pending/active, report THAT value 
+    // to provide immediate feedback to the UI, rather than waiting for the PID loop.
+    if (get_dew_heater_mode(heater_index) == 0 && ram_pwm_overrides[heater_index] >= 0) {
+        return ram_pwm_overrides[heater_index];
+    }
+
+    return heater_power[heater_index];
+}
+
+void set_dew_heater_pwm_ram(int heater_index, int pwm) {
+    if (heater_index < 0 || heater_index >= MAX_DEW_HEATERS) return;
+    ram_pwm_overrides[heater_index] = pwm;
+}
 
 // PID Controller variables
 static float pid_setpoint[MAX_DEW_HEATERS];
@@ -37,6 +56,15 @@ void dew_control_task(void *pvParameters);
 float calculate_dew_point(float temperature, float humidity);
 
 // --- Public Functions ---
+
+// Get the current mode of the dew heater (0=Manual, 1=Auto)
+int get_dew_heater_mode(int heater_index) {
+    if (heater_index < 0 || heater_index >= MAX_DEW_HEATERS) return 0; // Default to manual/safe
+    xSemaphoreTake(config_mutex, portMAX_DELAY);
+    int mode = config.dew_heaters[heater_index].mode;
+    xSemaphoreGive(config_mutex);
+    return mode;
+}
 
 void setup_dew_heaters() {
     for (int i = 0; i < MAX_DEW_HEATERS; i++) {
@@ -88,10 +116,7 @@ bool get_dew_heater_state(int heater_index) {
     return heater_enabled[heater_index];
 }
 
-int get_heater_power(int heater_index) {
-    if (heater_index < 0 || heater_index >= MAX_DEW_HEATERS) return 0;
-    return heater_power[heater_index];
-}
+
 
 // --- Helper Functions ---
 
@@ -160,7 +185,13 @@ void dew_control_task(void *pvParameters) {
 
             switch (heater_config.mode) {
                 case 0: { // Manual Mode
-                    heater_power[i] = heater_config.manual_power;
+                    // Use RAM override if set, otherwise config default
+                    if (ram_pwm_overrides[i] >= 0) {
+                        heater_power[i] = ram_pwm_overrides[i];
+                    } else {
+                        heater_power[i] = heater_config.manual_power;
+                    }
+                    
                     uint32_t duty_cycle = get_corrected_duty_cycle(heater_power[i]);
                     ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
                     break;
