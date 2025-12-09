@@ -949,6 +949,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         grid.innerHTML = '';
         for (const [id, key] of Object.entries(switchIDMap)) {
+            // Skip Master Power in the grid (it has its own dedicated control)
+            if (key === 'master_power') continue;
+
             const shortKey = shortSwitchIDMap[key] || key;
 
             // Filter disabled switches (State 2)
