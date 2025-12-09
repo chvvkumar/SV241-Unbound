@@ -1017,6 +1017,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 continue;
             }
 
+            // Filter disabled heaters (Mode 5)
+            // Heaters are in originalConfig.h array. pwm1 -> index 0, pwm2 -> index 1
+            if (originalConfig && originalConfig.h) {
+                if (key === 'pwm1' && originalConfig.h[0] && originalConfig.h[0].m === 5) continue;
+                if (key === 'pwm2' && originalConfig.h[1] && originalConfig.h[1].m === 5) continue;
+            }
+
             const displayName = (switchNames && switchNames[key]) ? switchNames[key] : (longToShortKeyMap[key] || key);
             const controlDiv = document.createElement('div');
             controlDiv.className = 'switch-control glass-panel'; // CSS class handles the rest

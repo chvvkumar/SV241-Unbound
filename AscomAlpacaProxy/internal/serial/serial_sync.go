@@ -58,9 +58,13 @@ func SyncFirmwareConfig() {
 		currentID++
 	}
 
-	// 2. Dew Heaters (Dynamic? No, strict mapping required for ASCOM stability)
+	// 2. Dew Heaters
 	for i := range fwConfig.DH {
-		// Always add heaters (pwm1, pwm2) to preserve ID mapping.
+		// If heater is Disabled (Mode 5), skip it to hide from ASCOM
+		if fwConfig.DH[i].M == 5 {
+			continue
+		}
+
 		internalName := fmt.Sprintf("pwm%d", i+1)
 		shortKey := fmt.Sprintf("pwm%d", i+1)
 
