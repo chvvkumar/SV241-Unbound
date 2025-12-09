@@ -375,9 +375,29 @@ document.addEventListener('DOMContentLoaded', () => {
             listenAddressSelect.value = currentListenAddress;
         }
 
+        // Populate Auto-enable Leader checkboxes
         if (proxyConf.heaterAutoEnableLeader) {
-            document.getElementById('heater-0-auto-enable-leader').checked = proxyConf.heaterAutoEnableLeader['pwm1'];
-            document.getElementById('heater-1-auto-enable-leader').checked = proxyConf.heaterAutoEnableLeader['pwm2'];
+            const h0Auto = document.getElementById('heater-0-auto-enable-leader');
+            const h1Auto = document.getElementById('heater-1-auto-enable-leader');
+            if (h0Auto) h0Auto.checked = proxyConf.heaterAutoEnableLeader['pwm1'];
+            if (h1Auto) h1Auto.checked = proxyConf.heaterAutoEnableLeader['pwm2'];
+        }
+
+        // Standardize switch map access (lowercase keys if needed, but usually they match)
+        // Populate Custom PWM Names if present
+        if (proxyConf.switchNames) {
+            const pwm1Input = document.getElementById('heater-0-custom-name');
+            if (pwm1Input) {
+                const name = proxyConf.switchNames['pwm1'] || "";
+                pwm1Input.value = name;
+                updateHeaterHeader(0, name);
+            }
+            const pwm2Input = document.getElementById('heater-1-custom-name');
+            if (pwm2Input) {
+                const name = proxyConf.switchNames['pwm2'] || "";
+                pwm2Input.value = name;
+                updateHeaterHeader(1, name);
+            }
         }
 
         if (proxyConf.switchNames) {
@@ -606,6 +626,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tbody.appendChild(row);
         });
+    }
+
+    function updateHeaterHeader(index, customName) {
+        const heaterDiv = document.getElementById(`heater-${index}`);
+        if (!heaterDiv) return;
+        const header = heaterDiv.querySelector('h4');
+        if (!header) return;
+
+        // Base name: Heater 1 (PWM1) or Heater 2 (PWM2)
+        const base = index === 0 ? "Heater 1 (PWM1)" : "Heater 2 (PWM2)";
+        if (customName && customName.trim() !== "") {
+            header.textContent = `${base} - ${customName}`;
+        } else {
+            header.textContent = base;
+        }
     }
 
     // --- Data Saving ---
@@ -1281,6 +1316,18 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 newConfig.switchNames['master_power'] = "";
             }
+        }
+
+        // PWM Custom Names
+        const pwm1NameInput = document.getElementById('heater-0-custom-name');
+        if (pwm1NameInput) {
+            if (!newConfig.switchNames) newConfig.switchNames = {};
+            newConfig.switchNames['pwm1'] = pwm1NameInput.value.trim();
+        }
+        const pwm2NameInput = document.getElementById('heater-1-custom-name');
+        if (pwm2NameInput) {
+            if (!newConfig.switchNames) newConfig.switchNames = {};
+            newConfig.switchNames['pwm2'] = pwm2NameInput.value.trim();
         }
 
         try {
