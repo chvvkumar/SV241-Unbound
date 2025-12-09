@@ -7,7 +7,9 @@
 #define FIRMWARE_VERSION "0.9.7"
 
 // Maximum number of supported dew heaters
+// Maximum number of supported dew heaters
 #define MAX_DEW_HEATERS 2
+#define DEW_MODE_DISABLED 5
 
 // Structs for organizing configuration settings
 
@@ -48,7 +50,7 @@ struct AveragingCounts {
 struct DewHeaterConfig {
     char name[32];
     bool enabled_on_startup;
-    int mode;              // 0: Manual, 1: PID, 2: Ambient Tracking, 3: PID Sync, 4: Minimum Temperature
+    int mode;              // 0: Manual, 1: PID, 2: Ambient Tracking, 3: PID Sync, 4: Minimum Temperature, 5: Disabled
     int manual_power;      // Manual power in % (if mode is 0)
     
     // PID settings (for mode 1)

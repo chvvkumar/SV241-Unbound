@@ -278,6 +278,12 @@ void dew_control_task(void *pvParameters) {
                     ledcWrite(HEATER_LEDC_CHANNELS[i], duty_cycle);
                     break;
                 }
+
+                case 5: { // Disabled Mode (Hidden)
+                    heater_power[i] = 0;
+                    ledcWrite(HEATER_LEDC_CHANNELS[i], 0);
+                    break;
+                }
             }
         }
 
