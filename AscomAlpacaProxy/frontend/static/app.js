@@ -144,6 +144,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll(`#heater-${heaterIndex} .mode-settings`).forEach(el => el.classList.remove('active'));
         const activeSettings = document.getElementById(`heater-${heaterIndex}-mode-${selectedMode}`);
         if (activeSettings) activeSettings.classList.add('active');
+
+        // Feature: Disable and clear custom name if Heater is disabled (Mode 5)
+        const nameInput = document.getElementById(`heater-${heaterIndex}-custom-name`);
+        if (nameInput) {
+            if (selectedMode === "5") {
+                nameInput.value = "";
+                nameInput.disabled = true;
+                // Update header immediately to reflect removal
+                if (typeof updateHeaterHeader === 'function') {
+                    updateHeaterHeader(heaterIndex, "");
+                }
+            } else {
+                nameInput.disabled = false;
+            }
+        }
     }
 
     function updateHeaterOptions() {
