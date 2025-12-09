@@ -104,10 +104,10 @@
                                 <table class="config-table" id="switch-config-table">
                                     <thead>
                                         <tr>
-                                            <th>Switch Name</th>
-                                            <th>State (Startup)</th>
-                                            <th>Custom Name</th>
-                                            <th>Voltage (Adj Only)</th>
+                                            <th class="th-name">Switch Name</th>
+                                            <th class="th-state">State (Startup)</th>
+                                            <th class="th-custom">Custom Name</th>
+                                            <th class="th-volt">Voltage</th>
                                         </tr>
                                     </thead>
                                     <tbody id="switch-config-tbody">
@@ -322,7 +322,7 @@
                             </div>
                             <div class="form-group"><label><input type="checkbox" id="proxy-auto-detect-port">
                                     Auto-detect Port</label></div>
-                            
+
                             <div class="pid-grid">
                                 <label>Listen Address
                                     <select id="proxy-listen-address">
@@ -347,24 +347,27 @@
                             <h4>Alpaca Features & Switches</h4>
                             <div class="form-group"><label><input type="checkbox" id="proxy-enable-alpaca-voltage">
                                     Enable Alpaca Voltage Control (0-15V Slider)</label></div>
-                            
+
                             <div class="form-group">
                                 <label>Master Power Switch (Virtual)</label>
                                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                    <select id="proxy-master-power-state" class="theme-select" style="width: auto; min-width: 120px;">
+                                    <select id="proxy-master-power-state" class="theme-select"
+                                        style="width: auto; min-width: 120px;">
                                         <option value="enabled">Enabled</option>
                                         <option value="disabled">Disabled</option>
                                     </select>
-                                    <input type="text" id="proxy-master-power-name" placeholder="Switch Name" style="flex: 1;">
+                                    <input type="text" id="proxy-master-power-name" placeholder="Switch Name"
+                                        style="flex: 1;">
                                 </div>
                                 <small style="display: block; margin-top: 0.3rem; color: var(--text-muted);">
                                     When disabled, this switch is hidden from ASCOM clients.
                                 </small>
                             </div>
                         </div>
-                        
+
                         <div class="settings-block">
-                            <button id="save-proxy-config-button" class="btn-primary" style="width: 100%;">Save Proxy Config</button>
+                            <button id="save-proxy-config-button" class="btn-primary" style="width: 100%;">Save Proxy
+                                Config</button>
                         </div>
                     </div>
 

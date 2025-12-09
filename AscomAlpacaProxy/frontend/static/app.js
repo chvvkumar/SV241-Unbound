@@ -586,15 +586,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 voltInput.step = "0.1";
                 voltInput.min = "3.0"; // Example limits
                 voltInput.max = "12.0"; // Firmware might clamp differently
-                voltInput.style.width = "80px";
+                voltInput.style.width = "100%"; // Fill cell
                 if (typeof adjVoltage !== 'undefined') {
                     voltInput.value = adjVoltage;
                 }
                 voltCell.appendChild(voltInput);
             } else {
-                voltCell.textContent = "-";
-                voltCell.style.textAlign = "center";
-                voltCell.style.opacity = "0.5";
+                // Placeholder input for consistency
+                const placeholderInput = document.createElement('input');
+                placeholderInput.type = 'text';
+                placeholderInput.className = "volt-placeholder-input";
+                placeholderInput.value = "-";
+                placeholderInput.disabled = true;
+                placeholderInput.style.width = "100%"; // Fill cell
+                placeholderInput.style.textAlign = "center";
+                voltCell.appendChild(placeholderInput);
             }
             row.appendChild(voltCell);
 

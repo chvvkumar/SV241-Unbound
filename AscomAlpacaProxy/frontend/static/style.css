@@ -733,3 +733,75 @@ button {
     border: 1px solid var(--surface-border);
     color: var(--text-primary);
 }
+
+/* Switch Configuration Table Layout */
+.config-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+    /* Row spacing */
+}
+
+.config-table th {
+    text-align: left;
+    padding: 0.5rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.config-table td {
+    padding: 0 0.5rem;
+    vertical-align: middle;
+}
+
+/* Column Widths - Fluid "Custom Name" */
+.th-name,
+.th-state {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.th-volt {
+    width: 80px;
+    /* Fixed width for voltage */
+    white-space: nowrap;
+}
+
+.th-custom {
+    width: auto;
+}
+
+/* Restyle Inputs in Table */
+.custom-name-input,
+.adj-volt-input,
+.volt-placeholder-input {
+    width: 100%;
+    box-sizing: border-box;
+    /* Ensure inputs fit within the cell's constraints */
+}
+
+.volt-placeholder-input {
+    cursor: default;
+    /* Use standard input styles but dimmed */
+    opacity: 0.6;
+    text-align: center;
+}
+
+/* Ensure Dropdowns fit */
+.startup-state-select {
+    width: 100%;
+    min-width: 140px;
+    /* Prevent being too narrow on mobile */
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 600px) {
+    .config-table th {
+        font-size: 0.8rem;
+    }
+
+    .startup-state-select {
+        min-width: 110px;
+    }
+}
