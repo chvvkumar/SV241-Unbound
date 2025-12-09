@@ -163,6 +163,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const applyConstraints = () => {
             const val0 = heater0ModeSelect.value;
             const val1 = heater1ModeSelect.value;
+            const disabledMode = '5';
+
+            // 1.5 Handle Startup Enable Checkbox for Disabled Mode
+            const startupCheckbox0 = document.getElementById('heater-0-startup-enabled');
+            if (startupCheckbox0) {
+                if (val0 === disabledMode) {
+                    startupCheckbox0.checked = false;
+                    startupCheckbox0.disabled = true;
+                } else {
+                    startupCheckbox0.disabled = false;
+                }
+            }
+
+            const startupCheckbox1 = document.getElementById('heater-1-startup-enabled');
+            if (startupCheckbox1) {
+                if (val1 === disabledMode) {
+                    startupCheckbox1.checked = false;
+                    startupCheckbox1.disabled = true;
+                } else {
+                    startupCheckbox1.disabled = false;
+                }
+            }
 
             // 2. Handle PID-Sync (Follower) mode constraints
             const syncOption1 = heater1ModeSelect.querySelector(`option[value="${syncMode}"]`);
