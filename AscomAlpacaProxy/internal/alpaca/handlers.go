@@ -412,7 +412,8 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if id == 7 && config.Get().EnableAlpacaVoltageControl {
+	// Special handling for Adjustable Voltage
+	if longKey == "adj_conv" && config.Get().EnableAlpacaVoltageControl {
 		if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
 			// If Value is provided, set specific voltage
 			value, _ := strconv.ParseFloat(valueStr, 64)
@@ -422,6 +423,13 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 			// Use "true"/"false" for bool to avoid ambiguity with "1"=1V in firmware
 			command = fmt.Sprintf(`{"set":{"%s":%t}}`, shortKey, state)
 		}
+	} else if longKey == "master_power" {
+		// Master Power "all" command usually expects 0/1 in some firmware versions, matching Action handler
+		stateInt := 0
+		if state {
+			stateInt = 1
+		}
+		command = fmt.Sprintf(`{"set":{"%s":%d}}`, shortKey, stateInt)
 	} else {
 		// Use "true"/"false" for bool to avoid ambiguity with "1"=1V in firmware
 		command = fmt.Sprintf(`{"set":{"%s":%t}}`, shortKey, state)
@@ -507,7 +515,11 @@ func (a *API) HandleSwitchCanWrite(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) HandleSwitchMaxSwitchValue(w http.ResponseWriter, r *http.Request) {
 	if id, ok := ParseSwitchID(w, r); ok {
-		if id == 7 && config.Get().EnableAlpacaVoltageControl {
+		key := config.SwitchIDMap[id]
+		// Debug logging for troubleshooting slider issue
+		logger.Debug("MaxSwitchValue: ID=%d Key=%s", id, key)
+
+		if key == "adj_conv" && config.Get().EnableAlpacaVoltageControl {
 			FloatResponse(w, r, 15.0)
 			return
 		}
@@ -515,9 +527,9 @@ func (a *API) HandleSwitchMaxSwitchValue(w http.ResponseWriter, r *http.Request)
 		// Lightweight PWM limit based on Dew Mode
 		// Status contains "dm": [mode1, mode2]
 		heaterIdx := -1
-		if id == 8 {
+		if key == "pwm1" {
 			heaterIdx = 0
-		} else if id == 9 {
+		} else if key == "pwm2" {
 			heaterIdx = 1
 		}
 
@@ -550,7 +562,9 @@ func (a *API) HandleSwitchMinSwitchValue(w http.ResponseWriter, r *http.Request)
 
 func (a *API) HandleSwitchSwitchStep(w http.ResponseWriter, r *http.Request) {
 	if id, ok := ParseSwitchID(w, r); ok {
-		if id == 7 && config.Get().EnableAlpacaVoltageControl {
+		key := config.SwitchIDMap[id]
+
+		if key == "adj_conv" && config.Get().EnableAlpacaVoltageControl {
 			FloatResponse(w, r, 0.1)
 			return
 		}

@@ -51,10 +51,34 @@ func SyncFirmwareConfig() {
 	currentID := 0
 
 	for i, name := range standardSwitches {
-		// We add ALL standard switches regardless of state to preserve ASCOM ID mapping stability.
-		// If a switch is disabled in firmware (State 2), it will still appear but might be read-only or error on set.
+		shortKey := standardShortKeys[i]
+		var state int
+		switch shortKey {
+		case "d1":
+			state = fwConfig.PS.DC1
+		case "d2":
+			state = fwConfig.PS.DC2
+		case "d3":
+			state = fwConfig.PS.DC3
+		case "d4":
+			state = fwConfig.PS.DC4
+		case "d5":
+			state = fwConfig.PS.DC5
+		case "u12":
+			state = fwConfig.PS.USBC12
+		case "u34":
+			state = fwConfig.PS.USB345
+		case "adj":
+			state = fwConfig.PS.AdjConv
+		}
+
+		// If switch is Disabled (State 2), skip it
+		if state == 2 {
+			continue
+		}
+
 		newIDMap[currentID] = name
-		newShortKeyByID[currentID] = standardShortKeys[i]
+		newShortKeyByID[currentID] = shortKey
 		currentID++
 	}
 
