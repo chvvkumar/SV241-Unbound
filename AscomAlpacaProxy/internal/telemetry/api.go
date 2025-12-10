@@ -140,7 +140,7 @@ func getRecentLogFiles(count int) ([]string, error) {
 
 	var files []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "telemetry_") {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "telemetry_") && strings.HasSuffix(entry.Name(), ".csv") {
 			files = append(files, entry.Name())
 		}
 	}
