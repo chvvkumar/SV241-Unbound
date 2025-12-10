@@ -737,7 +737,8 @@ func (a *API) HandleObsCondRefresh(w http.ResponseWriter, r *http.Request) {
 
 func handleHeaterInteractions(id int, state bool) {
 	// This logic checks for heater inter-dependencies (PID leader/follower).
-	if id != 8 && id != 9 {
+	key := config.SwitchIDMap[id]
+	if key != "pwm1" && key != "pwm2" {
 		return // Not a heater
 	}
 
@@ -757,8 +758,12 @@ func handleHeaterInteractions(id int, state bool) {
 	}
 
 	if state { // Logic for turning a heater ON
-		followerHeaterIndex := id - 8
-		followerKey := fmt.Sprintf("pwm%d", followerHeaterIndex+1)
+		followerHeaterIndex := 0
+		if key == "pwm2" {
+			followerHeaterIndex = 1
+		}
+
+		followerKey := key
 		if !config.Get().HeaterAutoEnableLeader[followerKey] {
 			logger.Debug("Auto-enable leader is disabled for %s. Skipping.", followerKey)
 			return
@@ -769,13 +774,18 @@ func handleHeaterInteractions(id int, state bool) {
 		leaderMode := fwConfig.DH[leaderHeaterIndex].M
 		isLeaderValid := leaderMode == 1 || leaderMode == 4 // 1 = PID, 4 = MinTemp
 		if isFollower && isLeaderValid {
-			leaderAscomId := leaderHeaterIndex + 8
-			logger.Info("Activating Leader (ID %d) for Follower (ID %d).", leaderAscomId, id)
-			leaderShortKey := config.ShortSwitchKeyByID[leaderAscomId]
+			// Determine Leader Key
+			leaderLongKey := "pwm1"
+			if leaderHeaterIndex == 1 {
+				leaderLongKey = "pwm2"
+			}
+
+			logger.Info("Activating Leader (%s) for Follower (%s).", leaderLongKey, followerKey)
+			leaderShortKey := config.ShortSwitchIDMap[leaderLongKey]
 			leaderCommand := fmt.Sprintf(`{"set":{"%s":true}}`, leaderShortKey)
 			responseJSON, err := serial.SendCommand(leaderCommand, true, 0)
 			if err != nil {
-				logger.Error("HeaterInteraction: Failed to send enable command to Leader (ID %d): %v", leaderAscomId, err)
+				logger.Error("HeaterInteraction: Failed to send enable command to Leader (%s): %v", leaderLongKey, err)
 			} else {
 				// Update Cache
 				var rootData map[string]interface{}
@@ -791,25 +801,38 @@ func handleHeaterInteractions(id int, state bool) {
 						}
 						serial.Status.Data = statusMap
 						serial.Status.Unlock()
-						logger.Info("HeaterInteraction: Successfully activated Leader (ID %d).", leaderAscomId)
+						logger.Info("HeaterInteraction: Successfully activated Leader (%s).", leaderLongKey)
 					}
 				}
 			}
 		}
 	} else { // Logic for turning a heater OFF
-		leaderHeaterIndex := id - 8
+		// If a PID Leader is turned OFF, disable its Follower if needed
+
+		leaderHeaterIndex := 0
+		if key == "pwm2" {
+			leaderHeaterIndex = 1
+		}
+
+		leaderLongKey := key // The heater being turned off is potentially a leader
+
 		followerHeaterIndex := 1 - leaderHeaterIndex
 		leaderMode := fwConfig.DH[leaderHeaterIndex].M
 		isLeaderValid := leaderMode == 1 || leaderMode == 4 // 1 = PID, 4 = MinTemp
 		isFollower := fwConfig.DH[followerHeaterIndex].M == 3
+
 		if isLeaderValid && isFollower {
-			followerAscomId := followerHeaterIndex + 8
-			logger.Info("Deactivating PID Follower (ID %d) because Leader (ID %d) was turned off.", followerAscomId, id)
-			followerShortKey := config.ShortSwitchKeyByID[followerAscomId]
+			followerLongKey := "pwm1"
+			if followerHeaterIndex == 1 {
+				followerLongKey = "pwm2"
+			}
+
+			logger.Info("Deactivating PID Follower (%s) because Leader (%s) was turned off.", followerLongKey, leaderLongKey)
+			followerShortKey := config.ShortSwitchIDMap[followerLongKey]
 			followerCommand := fmt.Sprintf(`{"set":{"%s":false}}`, followerShortKey)
 			responseJSON, err := serial.SendCommand(followerCommand, true, 0)
 			if err != nil {
-				logger.Error("HeaterInteraction: Failed to send disable command to Follower (ID %d): %v", followerAscomId, err)
+				logger.Error("HeaterInteraction: Failed to send disable command to Follower (%s): %v", followerLongKey, err)
 			} else {
 				// Update Cache with response to ensure UI reflects the change immediately
 				var rootData map[string]interface{}
@@ -826,7 +849,7 @@ func handleHeaterInteractions(id int, state bool) {
 						}
 						serial.Status.Data = statusMap
 						serial.Status.Unlock()
-						logger.Info("HeaterInteraction: Successfully deactivated Follower (ID %d).", followerAscomId)
+						logger.Info("HeaterInteraction: Successfully deactivated Follower (%s).", followerLongKey)
 					}
 				}
 			}
