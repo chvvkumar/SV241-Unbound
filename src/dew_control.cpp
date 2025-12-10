@@ -263,8 +263,8 @@ void dew_control_task(void *pvParameters) {
                 case 3: { // PID-Sync Mode
                     int leader_index = 1 - i; // The other heater is the leader
                     
-                    // Make sure the leader is actually in PID mode
-                    if (config.dew_heaters[leader_index].mode == 1) {
+                    // Make sure the leader is actually in PID mode or MinTemp mode
+                    if (config.dew_heaters[leader_index].mode == 1 || config.dew_heaters[leader_index].mode == 4) {
                         float leader_power = (float)heater_power[leader_index];
                         float follower_power = leader_power * heater_config.pid_sync_factor;
                         

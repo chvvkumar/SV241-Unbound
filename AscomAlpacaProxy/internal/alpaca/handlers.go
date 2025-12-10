@@ -752,10 +752,11 @@ func handleHeaterInteractions(id int, state bool) {
 
 		leaderHeaterIndex := 1 - followerHeaterIndex
 		isFollower := fwConfig.DH[followerHeaterIndex].M == 3 // 3 = PID-Sync (Follower)
-		isLeaderPID := fwConfig.DH[leaderHeaterIndex].M == 1  // 1 = PID
-		if isFollower && isLeaderPID {
+		leaderMode := fwConfig.DH[leaderHeaterIndex].M
+		isLeaderValid := leaderMode == 1 || leaderMode == 4 // 1 = PID, 4 = MinTemp
+		if isFollower && isLeaderValid {
 			leaderAscomId := leaderHeaterIndex + 8
-			logger.Info("Activating PID Leader (ID %d) for Follower (ID %d).", leaderAscomId, id)
+			logger.Info("Activating Leader (ID %d) for Follower (ID %d).", leaderAscomId, id)
 			leaderShortKey := config.ShortSwitchKeyByID[leaderAscomId]
 			leaderCommand := fmt.Sprintf(`{"set":{"%s":true}}`, leaderShortKey)
 			responseJSON, err := serial.SendCommand(leaderCommand, true, 0)
@@ -784,9 +785,10 @@ func handleHeaterInteractions(id int, state bool) {
 	} else { // Logic for turning a heater OFF
 		leaderHeaterIndex := id - 8
 		followerHeaterIndex := 1 - leaderHeaterIndex
-		isLeaderPID := fwConfig.DH[leaderHeaterIndex].M == 1
+		leaderMode := fwConfig.DH[leaderHeaterIndex].M
+		isLeaderValid := leaderMode == 1 || leaderMode == 4 // 1 = PID, 4 = MinTemp
 		isFollower := fwConfig.DH[followerHeaterIndex].M == 3
-		if isLeaderPID && isFollower {
+		if isLeaderValid && isFollower {
 			followerAscomId := followerHeaterIndex + 8
 			logger.Info("Deactivating PID Follower (ID %d) because Leader (ID %d) was turned off.", followerAscomId, id)
 			followerShortKey := config.ShortSwitchKeyByID[followerAscomId]

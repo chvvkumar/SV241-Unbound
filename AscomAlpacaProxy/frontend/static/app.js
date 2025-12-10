@@ -202,11 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 2. Handle PID-Sync (Follower) mode constraints
+            // Sync is allowed if leader is in PID Mode (1) OR Minimum Temperature Mode (4)
+            const minTempMode = '4';
             const syncOption1 = heater1ModeSelect.querySelector(`option[value="${syncMode}"]`);
-            if (syncOption1) syncOption1.disabled = (val0 !== pidMode);
+            if (syncOption1) syncOption1.disabled = (val0 !== pidMode && val0 !== minTempMode);
 
             const syncOption0 = heater0ModeSelect.querySelector(`option[value="${syncMode}"]`);
-            if (syncOption0) syncOption0.disabled = (val1 !== pidMode);
+            if (syncOption0) syncOption0.disabled = (val1 !== pidMode && val1 !== minTempMode);
 
             // 3. Handle exclusive modes (PID and Minimum Temperature)
             if (exclusiveModes.includes(val0)) {
