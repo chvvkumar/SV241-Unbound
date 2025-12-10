@@ -805,3 +805,51 @@ button {
         min-width: 110px;
     }
 }
+
+/* --- Mobile Responsiveness (Small Screens) --- */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+        /* Reduce padding on mobile */
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .pid-grid {
+        flex-wrap: wrap;
+        /* Allow PID inputs to stack */
+    }
+
+    .button-row {
+        flex-direction: column;
+        /* Stack buttons on very small screens */
+    }
+
+    .button-row button {
+        width: 100%;
+    }
+
+    /* Ensure inputs don't cause overflow */
+    input,
+    select,
+    textarea {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Fix header overflow */
+    .main-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-badges {
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+
+    /* Fix table scrolling */
+    .table-container {
+        overflow-x: auto;
+    }
+}
