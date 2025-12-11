@@ -75,6 +75,7 @@ func setupRoutes(frontendFS fs.FS, appVersion string) {
 	http.HandleFunc("/api/v1/backup/restore", handleRestoreBackup)
 	http.HandleFunc("/api/v1/telemetry/dates", telemetry.HandleGetLogDates)
 	http.HandleFunc("/api/v1/telemetry/history", telemetry.HandleGetHistory)
+	http.HandleFunc("/api/v1/telemetry/download", telemetry.HandleDownloadCSV)
 
 	// New settings endpoint combines getting and setting proxy config
 	http.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {

@@ -186,3 +186,37 @@ func parseRecord(record []string) (DataPoint, error) {
 		PWM2:      pi(record[9]),
 	}, nil
 }
+
+// HandleDownloadCSV serves the raw CSV file for download.
+func HandleDownloadCSV(w http.ResponseWriter, r *http.Request) {
+	dateParam := r.URL.Query().Get("date")
+	if dateParam == "" {
+		http.Error(w, "Missing date parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Validate format
+	if _, err := time.Parse("2006-01-02", dateParam); err != nil {
+		http.Error(w, "Invalid date format. Use YYYY-MM-DD.", http.StatusBadRequest)
+		return
+	}
+
+	filename := fmt.Sprintf("telemetry_%s.csv", dateParam)
+	filepath := filepath.Join(GetLogsDir(), filename)
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "Log file not found for this date", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to open log file", http.StatusInternalServerError)
+		}
+		return
+	}
+	defer file.Close()
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
+	io.Copy(w, file)
+}

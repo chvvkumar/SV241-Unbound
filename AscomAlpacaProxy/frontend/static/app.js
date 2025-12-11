@@ -1646,6 +1646,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Download CSV button
+    const downloadCsvBtn = document.getElementById('download-telemetry-csv');
+    if (downloadCsvBtn) {
+        downloadCsvBtn.addEventListener('click', () => {
+            const selectedDate = dateSelect.value;
+            if (selectedDate) {
+                window.location.href = `/api/v1/telemetry/download?date=${selectedDate}`;
+            }
+        });
+    }
+
     async function openTelemetryModal(metric, title) {
         currentMetric = metric;
         currentMetricLabel = title;
