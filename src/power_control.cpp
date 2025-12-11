@@ -216,10 +216,14 @@ void handle_set_power_command(JsonVariant set_command) {
              set_power_output((PowerOutput)i, state);
          } else if (set_obj[name].is<int>() || set_obj[name].is<float>()) {
              float v = set_obj[name].as<float>();
-             set_adjustable_voltage_ram(v);
-             set_power_output((PowerOutput)i, true);
-         }
-         continue;
+             if (v <= 0.0f) {
+                 set_power_output((PowerOutput)i, false);  // Turn off at 0V
+             } else {
+                 set_adjustable_voltage_ram(v);
+                 set_power_output((PowerOutput)i, true);
+             }
+          }
+          continue;
       }
 
       // Special handling for PWM channels
