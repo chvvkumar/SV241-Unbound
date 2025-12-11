@@ -59,7 +59,7 @@ try {
 
 # --- 3. Determine IP Address and Port ---
 $IP = "127.0.0.1" # Default IP
-$Port = 8080       # Default Port
+$Port = 32241       # Default Port
 $ProxyConfigPath = Join-Path $env:APPDATA "SV241AlpacaProxy\proxy_config.json"
 $useManualEntry = $false
 

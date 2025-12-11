@@ -447,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mpState = (proxyConf.enableMasterPower !== false) ? 'enabled' : 'disabled';
         document.getElementById('proxy-master-power-state').value = mpState;
         document.getElementById('proxy-serial-port').disabled = proxyConf.autoDetectPort;
-        document.getElementById('proxy-network-port').value = proxyConf.networkPort || 8080;
+        document.getElementById('proxy-network-port').value = proxyConf.networkPort || 32241;
         document.getElementById('proxy-log-level').value = proxyConf.logLevel || 'INFO';
         document.getElementById('proxy-history-retention').value = proxyConf.historyRetentionNights || 30;
 
@@ -945,7 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             serialPortName: document.getElementById('proxy-serial-port').value.trim(),
             autoDetectPort: document.getElementById('proxy-auto-detect-port').checked,
             enableAlpacaVoltageControl: document.getElementById('proxy-enable-alpaca-voltage').checked,
-            networkPort: parseInt(document.getElementById('proxy-network-port').value, 10) || 8080,
+            networkPort: parseInt(document.getElementById('proxy-network-port').value, 10) || 32241,
             logLevel: document.getElementById('proxy-log-level').value,
             historyRetentionNights: parseInt(document.getElementById('proxy-history-retention').value, 10) || 30,
             switchNames: {},

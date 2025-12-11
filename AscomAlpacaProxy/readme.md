@@ -38,7 +38,7 @@ The project also includes a standalone ASCOM Alpaca proxy driver written in Go. 
 > **Warning:** All traffic between the astronomy software (client) and this Alpaca proxy driver is transmitted **unencrypted** over the network (HTTP).
 >
 > *   This means that **anyone on the same network** can potentially access the driver and control your device.
-> *   By default, the proxy now listens only on `127.0.0.1` (localhost) for enhanced security. If you configure it to be accessible over the network, it is strongly recommended to restrict access to the proxy port (default `8080`) using **firewall rules**.
+> *   By default, the proxy now listens only on `127.0.0.1` (localhost) for enhanced security. If you configure it to be accessible over the network, it is strongly recommended to restrict access to the proxy port (default `32241`) using **firewall rules**.
 > *   Do not use this driver on unsecured networks (e.g., public Wi-Fi).
 
 ### Manually Creating a Firewall Rule
@@ -85,16 +85,16 @@ You can trigger these actions from the command line using a tool like `curl`. Th
 
 **Example: Turn all switches off**
 ```bash
-curl -X PUT -d "Action=MasterSwitchOff" http://localhost:8080/api/v1/switch/0/action
+curl -X PUT -d "Action=MasterSwitchOff" http://localhost:32241/api/v1/switch/0/action
 ```
 
 **Example: Get current voltage**
 ```bash
-curl -X PUT -d "Action=getvoltage" http://localhost:8080/api/v1/switch/0/action
+curl -X PUT -d "Action=getvoltage" http://localhost:32241/api/v1/switch/0/action
 ```
 > **Note for Windows PowerShell users:** The standard `curl` command in PowerShell is an alias for `Invoke-WebRequest`, which has a different syntax and requires the `Content-Type` to be set explicitly. To use the master switch, the correct PowerShell command is:
 > ```powershell
-> Invoke-WebRequest -Uri http://localhost:8080/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOff" -ContentType "application/x-www-form-urlencoded"
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOff" -ContentType "application/x-www-form-urlencoded"
 > ```
 
 ## Accessing the Setup Page
@@ -107,10 +107,10 @@ The primary way to configure the SV241 Alpaca Proxy is through its built-in web 
 
 2.  **Direct Browser URL**
     *   You can also access the page by manually entering the URL into your web browser. By default, the address is:
-    *   `http://localhost:8080/setup`
+    *   `http://localhost:32241/setup`
 
 3.  **If the Default Port is Busy**
-    *   The proxy is configured to start on port `8080` by default. If another application is already using this port, the proxy will automatically search for the next available port (e.g., `8081`, `8082`, etc.).
+    *   The proxy is configured to start on port `32241` by default. If another application is already using this port, the proxy will automatically search for the next available port (e.g., `32242`, `32243`, etc.).
     *   If you cannot connect using the default URL, check the `proxy.log` file located in the configuration directory. The log file will contain a line indicating which port the server started on, for example:
         ```
         [INFO] Starting Alpaca API server on port 8081...
@@ -205,7 +205,7 @@ If you prefer to set up the driver manually, or if the helper script fails for a
     *   Click the `Properties...` button.
     *   A setup window will open. Enter the exact connection details here:
         *   **Remote Device Host Name or IP Address:** `localhost`
-        *   **Alpaca Port:** `8080` (or the port your proxy is running on)
+        *   **Alpaca Port:** `32241` (or the port your proxy is running on)
         *   **Remote Device Number:** `0` (default for the first device)
     *   Click `OK` in the setup window.
 
@@ -239,7 +239,7 @@ Here is an example of the `proxy_config.json` file structure:
 {
   "serialPortName": "COM9",
   "autoDetectPort": false,
-  "networkPort": 8080,
+  "networkPort": 32241,
   "listenAddress": "127.0.0.1",
   "logLevel": "INFO",
   "historyRetentionNights": 10,
@@ -271,7 +271,7 @@ Here is an example of the `proxy_config.json` file structure:
 *   `serialPortName` (string): The name of the serial port for the SV241 device (e.g., `"COM9"`). If this string is empty (`""`), the proxy will attempt to auto-detect the port on startup.
     > **Note:** When `Auto-Detect Port` is enabled (or `serialPortName` is empty), the proxy probes all available USB serial ports to find the SV241. This "safe-but-aggressive" probing can potentially interfere with other sensitive devices (e.g., Mounts, Weather Stations). **Solution:** To prevent conflicts, connect the SV241 once to let it auto-detect, then **disable "Auto-Detect Port"** (or uncheck the box in the web UI). The proxy will then strictly only open the configured port.
 *   `autoDetectPort` (boolean): When `true`, the proxy will attempt to find the SV241 automatically if the configured port fails. Default is `true`.
-*   `networkPort` (integer): The TCP port on which the Alpaca API server will listen for connections from client applications. The default is `8080`. A restart of the proxy is required for changes to this value to take effect.
+*   `networkPort` (integer): The TCP port on which the Alpaca API server will listen for connections from client applications. The default is `32241`. A restart of the proxy is required for changes to this value to take effect.
 *   `listenAddress` (string): The IP address to bind the server to. Use `"127.0.0.1"` for local-only access (recommended for security) or `"0.0.0.0"` to allow network access. Default is `"127.0.0.1"`.
 *   `logLevel` (string): Controls the verbosity of the log file. Valid values are `"ERROR"`, `"WARN"`, `"INFO"`, and `"DEBUG"`. This setting is applied live when changed.
 *   `historyRetentionNights` (integer): The number of days/nights to retain CSV telemetry logs. Older files are automatically deleted at startup. Default is `10`.

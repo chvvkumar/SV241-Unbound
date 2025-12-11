@@ -118,7 +118,7 @@ func Load() error {
 			// Initialize with default values
 			proxyConfig = &ProxyConfig{
 				AutoDetectPort: true, // Standardmäßig ist der Autoscan an
-				NetworkPort:    8080,
+				NetworkPort:    32241,
 				ListenAddress:  "127.0.0.1", // Default to localhost only
 				LogLevel:       "INFO",
 				SwitchNames:    make(map[string]string),
@@ -148,7 +148,7 @@ func Load() error {
 
 	// --- Validate and set defaults for missing fields ---
 	if proxyConfig.NetworkPort == 0 {
-		proxyConfig.NetworkPort = 8080
+		proxyConfig.NetworkPort = 32241
 	}
 	if proxyConfig.ListenAddress == "" {
 		logger.Warn("Configuration key 'ListenAddress' not found, using default '127.0.0.1'.")
@@ -246,7 +246,7 @@ func GetSetupURL() string {
 // opens the correct URL based on the saved listenAddress.
 func GetSetupURLFromFile() string {
 	const defaultHost = "127.0.0.1"
-	const defaultPort = 8080
+	const defaultPort = 32241
 
 	file, err := os.ReadFile(proxyConfigFile)
 	if err != nil {
