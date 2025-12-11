@@ -284,8 +284,8 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 
 	if val, ok := serial.Status.Data[shortKey]; ok {
 		var switchValue float64
-		// Special handling for Adjustable Voltage (ID 7) if enabled
-		if id == 7 && config.Get().EnableAlpacaVoltageControl {
+		// Special handling for Adjustable Voltage if enabled
+		if shortKey == "adj" && config.Get().EnableAlpacaVoltageControl {
 			// Check if the device reports the output is actually OFF (boolean false)
 			// Firmware reports boolean 'false' for OFF, and float voltage for ON.
 			if boolVal, isBool := val.(bool); isBool && !boolVal {
@@ -311,9 +311,9 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 			// Standard Logic (or Voltage Control Disabled)
 			// Check for PWM Manual Mode to allow > 1.0
 			isManualPWM := false
-			if id == 8 || id == 9 {
+			if shortKey == "pwm1" || shortKey == "pwm2" {
 				heaterIdx := 0
-				if id == 9 {
+				if shortKey == "pwm2" {
 					heaterIdx = 1
 				}
 
@@ -383,11 +383,11 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 	var command string
 	var newVoltageTarget float64 = -1.0
 
-	// Special handling for PWM (ID 8, 9) if in Manual Mode (Lightweight check)
+	// Special handling for PWM if in Manual Mode (Lightweight check)
 	heaterIdx := -1
-	if id == 8 {
+	if longKey == "pwm1" {
 		heaterIdx = 0
-	} else if id == 9 {
+	} else if longKey == "pwm2" {
 		heaterIdx = 1
 	}
 
