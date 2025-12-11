@@ -150,7 +150,26 @@ void handle_set_power_command(JsonVariant set_command) {
     // Check for the special "all" key first
     if (set_obj["all"].is<bool>() || set_obj["all"].is<int>()) {
         bool all_state = set_obj["all"].as<bool>();
+        
+        // Build array of disabled states from config (inside mutex)
+        xSemaphoreTake(config_mutex, portMAX_DELAY);
+        bool is_disabled[POWER_OUTPUT_COUNT] = {
+            config.power_startup_states.dc1 == 2,
+            config.power_startup_states.dc2 == 2,
+            config.power_startup_states.dc3 == 2,
+            config.power_startup_states.dc4 == 2,
+            config.power_startup_states.dc5 == 2,
+            config.power_startup_states.usbc12 == 2,
+            config.power_startup_states.usb345 == 2,
+            config.power_startup_states.adj_conv == 2,
+            config.dew_heaters[0].mode == DEW_MODE_DISABLED,
+            config.dew_heaters[1].mode == DEW_MODE_DISABLED
+        };
+        xSemaphoreGive(config_mutex);
+        
         for (int i = 0; i < POWER_OUTPUT_COUNT; i++) {
+            // Skip outputs that are configured as Disabled
+            if (is_disabled[i]) continue;
             set_power_output((PowerOutput)i, all_state);
         }
         return; // Exit after handling the "all" command
