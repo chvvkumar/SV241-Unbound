@@ -259,6 +259,3 @@ This is an array that can contain up to two heater configuration objects. To upd
         ```
 
 </details>
-
-
-</details>

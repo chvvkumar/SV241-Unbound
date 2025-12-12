@@ -73,10 +73,7 @@ These actions allow reading the main power metrics directly from the `Switch` de
 *   `getvoltage`: Returns the current input voltage (in Volts).
 *   `getcurrent`: Returns the total current draw (in Amps).
 *   `getpower`: Returns the total power consumption (in Watts).
-
-#### Objective Temperature Action
-
-*   `getlenstemperature`: Returns the current objective temperature (in °C) from the `ObservingConditions` device. Helpful for scripts that need this specific metric.
+*   `getlenstemperature`: Returns the current objective/lens temperature (in °C). Helpful for scripts that need this specific metric.
 
 
 #### Using Actions via API (e.g., with `curl`)
@@ -92,9 +89,18 @@ curl -X PUT -d "Action=MasterSwitchOff" http://localhost:32241/api/v1/switch/0/a
 ```bash
 curl -X PUT -d "Action=getvoltage" http://localhost:32241/api/v1/switch/0/action
 ```
-> **Note for Windows PowerShell users:** The standard `curl` command in PowerShell is an alias for `Invoke-WebRequest`, which has a different syntax and requires the `Content-Type` to be set explicitly. To use the master switch, the correct PowerShell command is:
+> **Note for Windows PowerShell users:** The standard `curl` command in PowerShell is an alias for `Invoke-WebRequest`, which has a different syntax and requires the `Content-Type` to be set explicitly. Here are the correct PowerShell commands:
 > ```powershell
+> # Turn all switches off
 > Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOff" -ContentType "application/x-www-form-urlencoded"
+>
+> # Turn all switches on
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOn" -ContentType "application/x-www-form-urlencoded"
+>
+> # Read sensor values
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getvoltage" -ContentType "application/x-www-form-urlencoded"
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getcurrent" -ContentType "application/x-www-form-urlencoded"
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getlenstemperature" -ContentType "application/x-www-form-urlencoded"
 > ```
 
 ## Accessing the Setup Page
@@ -113,9 +119,9 @@ The primary way to configure the SV241 Alpaca Proxy is through its built-in web 
     *   The proxy is configured to start on port `32241` by default. If another application is already using this port, the proxy will automatically search for the next available port (e.g., `32242`, `32243`, etc.).
     *   If you cannot connect using the default URL, check the `proxy.log` file located in the configuration directory. The log file will contain a line indicating which port the server started on, for example:
         ```
-        [INFO] Starting Alpaca API server on port 8081...
+        [INFO] Starting Alpaca API server on port 32242...
         ```
-    *   You would then use that port in the URL: `http://localhost:8081/setup`
+    *   You would then use that port in the URL: `http://localhost:32242/setup`
 
 
 ## Telemetry & Logging
@@ -245,7 +251,7 @@ Here is an example of the `proxy_config.json` file structure:
   "historyRetentionNights": 10,
   "telemetryInterval": 10,
   "enableAlpacaVoltageControl": false,
-  "enableMasterPower": true,
+  "enableMasterPower": false,
   "switchNames": {
     "adj_conv": "Adjustable Voltage",
     "dc1": "Camera",
