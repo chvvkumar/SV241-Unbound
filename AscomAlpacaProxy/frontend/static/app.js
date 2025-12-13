@@ -1567,19 +1567,34 @@ document.addEventListener('DOMContentLoaded', () => {
             restoreFileInput.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
+                // Reset input so the same file can be selected again if needed
+                restoreFileInput.value = '';
+
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
                         const config = JSON.parse(e.target.result);
-                        await fetch('/api/v1/backup/restore', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(config)
-                        });
-                        alert('Configuration restored successfully! Reloading...');
-                        location.reload();
+
+                        // Show warning before restore
+                        showConfirm(
+                            'Restore Configuration',
+                            'WARNING: This will overwrite your current configuration with the backup. Are you sure you want to continue?',
+                            async () => {
+                                try {
+                                    await fetch('/api/v1/backup/restore', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(config)
+                                    });
+                                    // Show confirm dialog with reboot option
+                                    showRestoreSuccessDialog();
+                                } catch (err) {
+                                    showAlert('Error', 'Error restoring configuration: ' + err.message);
+                                }
+                            }
+                        );
                     } catch (err) {
-                        alert('Error restoring configuration: ' + err.message);
+                        showAlert('Error', 'Invalid backup file: ' + err.message);
                     }
                 };
                 reader.readAsText(file);
@@ -1734,7 +1749,44 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('hidden');
     }
 
+    function showRestoreSuccessDialog() {
+        const modal = document.getElementById('confirmation-modal');
+        document.getElementById('confirm-modal-title').textContent = 'Restore Successful';
+        document.getElementById('confirm-modal-message').textContent =
+            'Configuration restored successfully! Would you like to reboot the device to apply all settings?';
 
+        const okBtn = document.getElementById('confirm-modal-ok');
+        const cancelBtn = document.getElementById('confirm-modal-cancel');
+
+        // Clone buttons to remove old listeners
+        const newOkBtn = okBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        // Customize button text
+        newOkBtn.textContent = 'Reboot Now';
+        newCancelBtn.textContent = 'Skip';
+
+        newOkBtn.addEventListener('click', async () => {
+            closeModal('confirmation-modal');
+            showAlert('Info', 'Sending reboot command...', 3000);
+            try {
+                await fetch('/api/v1/command', {
+                    method: 'POST',
+                    body: JSON.stringify({ command: 'reboot' })
+                });
+            } catch (e) { /* ignore */ }
+            setTimeout(() => location.reload(), 5000);
+        });
+
+        newCancelBtn.addEventListener('click', () => {
+            closeModal('confirmation-modal');
+            location.reload();
+        });
+
+        modal.classList.remove('hidden');
+    }
 
     async function loadDateOptions() {
         dateSelect.innerHTML = '';
@@ -1776,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderChart(data);
         } catch (e) {
             console.error(e);
-            alert("Could not load telemetry data");
+            showAlert('Error', 'Could not load telemetry data');
         }
     }
 
