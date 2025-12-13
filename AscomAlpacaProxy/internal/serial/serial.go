@@ -319,34 +319,61 @@ func FindPort() (string, error) {
 
 	logger.Info("Found %d serial ports. Probing for SV241 device...", len(ports))
 	for _, port := range ports {
+		logger.Debug("Checking port: %s (IsUSB: %t, VID: %s, PID: %s)", port.Name, port.IsUSB, port.VID, port.PID)
 		if port.IsUSB {
 			logger.Info("Probing port: %s", port.Name)
-			mode := &serial.Mode{BaudRate: 115200}
-			p, err := serial.Open(port.Name, mode)
-			if err != nil {
-				logger.Warn("Could not open port %s to probe: %v", port.Name, err)
-				continue
-			}
 
-			_, err = p.Write([]byte("{\"get\":\"sensors\"}\n"))
-			if err != nil {
-				p.Close()
-				continue
-			}
+			// Use a channel-based timeout to prevent hanging on problematic ports
+			resultChan := make(chan bool, 1)
+			go func(portName string) {
+				mode := &serial.Mode{BaudRate: 115200}
+				p, err := serial.Open(portName, mode)
+				if err != nil {
+					logger.Warn("Could not open port %s to probe: %v", portName, err)
+					resultChan <- false
+					return
+				}
 
-			p.SetReadTimeout(2 * time.Second)
-			reader := bufio.NewReader(p)
-			line, err := reader.ReadString('\n')
-			p.Close() // Close the port immediately after use
-			if err != nil {
-				continue
-			}
+				_, err = p.Write([]byte("{\"get\":\"sensors\"}\n"))
+				if err != nil {
+					logger.Debug("Port %s: Write failed: %v", portName, err)
+					p.Close()
+					resultChan <- false
+					return
+				}
 
-			var js json.RawMessage
-			if json.Unmarshal([]byte(line), &js) == nil {
-				logger.Info("Successfully probed port: %s", port.Name)
-				return port.Name, nil
+				p.SetReadTimeout(2 * time.Second)
+				reader := bufio.NewReader(p)
+				line, err := reader.ReadString('\n')
+				p.Close() // Close the port immediately after use
+				if err != nil {
+					logger.Debug("Port %s: Read failed: %v", portName, err)
+					resultChan <- false
+					return
+				}
+
+				var js json.RawMessage
+				if json.Unmarshal([]byte(line), &js) == nil {
+					logger.Info("Successfully probed port: %s", portName)
+					resultChan <- true
+					return
+				} else {
+					logger.Debug("Port %s: Response was not valid JSON: %s", portName, line)
+				}
+				resultChan <- false
+			}(port.Name)
+
+			// Wait for result with a 5-second timeout
+			select {
+			case success := <-resultChan:
+				if success {
+					return port.Name, nil
+				}
+			case <-time.After(5 * time.Second):
+				logger.Warn("Port %s: Probe timed out after 5 seconds. Skipping.", port.Name)
 			}
+		} else {
+			logger.Debug("Skipping port %s: Not a USB port.", port.Name)
 		}
 	}
 	return "", errors.New("could not find SV241 device on any USB serial port")
