@@ -24,8 +24,8 @@ The project also includes a standalone ASCOM Alpaca proxy driver written in Go. 
   - [Controlling Individual Switches via REST API](#controlling-individual-switches-via-rest-api)
 - [Configuration Reference](#configuration-reference)
   - [Manual Configuration (`proxy_config.json`)](#manual-configuration-proxy_configjson)
-  - Log Level Configuration
-  - Log Rotation
+  - [Log Level Configuration](#log-level-configuration)
+  - [Log Rotation](#log-rotation)
 
 ## Features
 
