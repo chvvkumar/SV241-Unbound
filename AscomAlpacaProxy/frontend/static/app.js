@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalConfig = {};
     let originalProxyConfig = {};
     let statusPollCounter = 0;
+    let configDirty = false; // Prevents periodic refresh from overwriting unsaved config changes
     let switchIDMap = {
         0: "dc1", 1: "dc2", 2: "dc3", 3: "dc4", 4: "dc5",
         5: "usbc12", 6: "usb345", 7: "adj_conv", 8: "pwm1", 9: "pwm2",
@@ -223,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const changedSection = e.target.closest('.config-group') || e.target.closest('.collapsible-content') || e.target.closest('.tab-content');
 
             if (changedSection) {
+                configDirty = true; // Mark config as dirty to prevent refresh overwriting changes
                 const saveButton = changedSection.querySelector('button.save-config-button') || changedSection.querySelector('button#save-switch-names-button') || changedSection.querySelector('button#save-proxy-config-button');
                 const header = changedSection.querySelector('h3, h4');
 
@@ -237,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetUnsavedIndicators() {
+        configDirty = false; // Reset dirty flag after save
         document.querySelectorAll('button.needs-saving').forEach(btn => btn.classList.remove('needs-saving'));
         document.querySelectorAll('.has-unsaved-changes').forEach(header => header.classList.remove('has-unsaved-changes'));
     }
@@ -584,8 +587,10 @@ document.addEventListener('DOMContentLoaded', () => {
             proxyConfForStatus = proxyConf;
 
             if (proxyConf) {
-                applyProxyConfig(proxyConf, availableIPs);
-                populatePowerControls(proxyConf.switchNames); // Restore power controls
+                if (!configDirty) {
+                    applyProxyConfig(proxyConf, availableIPs);
+                }
+                populatePowerControls(proxyConf.switchNames); // Always update power controls
                 statusOk = true;
             }
 
@@ -609,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Object.values(switchIDMap).forEach(key => defaultNames[key] = key);
                 // Fallback default names
                 window.currentSwitchNames = defaultNames;
-                if (originalConfig && originalConfig.ps) {
+                if (!configDirty && originalConfig && originalConfig.ps) {
                     populateSwitchConfigTable(defaultNames, originalConfig.ps, originalConfig.av);
                 }
             } finally {
@@ -619,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (proxyConfForStatus && proxyConfForStatus.switchNames) {
                     window.currentSwitchNames = proxyConfForStatus.switchNames;
                 }
-                if (originalConfig && originalConfig.ps) {
+                if (!configDirty && originalConfig && originalConfig.ps) {
                     populateSwitchConfigTable(window.currentSwitchNames, originalConfig.ps, originalConfig.av);
                 }
             }
