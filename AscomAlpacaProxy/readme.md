@@ -9,7 +9,6 @@ The project also includes a standalone ASCOM Alpaca proxy driver written in Go. 
 - [Features](#features)
 - [Important Security Notice](#important-security-notice)
   - [Manually Creating a Firewall Rule](#manually-creating-a-firewall-rule)
-  - [ASCOM Switch Device Actions](#ascom-switch-device-actions)
 - [Accessing the Setup Page](#accessing-the-setup-page)
 - [Web Interface Guide](#web-interface-guide)
   - [Live Telemetry Panel](#live-telemetry-panel)
@@ -20,6 +19,9 @@ The project also includes a standalone ASCOM Alpaca proxy driver written in Go. 
 - [Driver Installation](#driver-installation)
   - [Easy Driver Creation (Recommended)](#easy-driver-creation-recommended)
   - [Manual Driver Creation (Fallback)](#manual-driver-creation-fallback)
+- [REST API & Automation](#rest-api--automation)
+  - [Custom ASCOM Actions](#custom-ascom-actions)
+  - [Controlling Individual Switches via REST API](#controlling-individual-switches-via-rest-api)
 - [Configuration Reference](#configuration-reference)
   - [Manual Configuration (`proxy_config.json`)](#manual-configuration-proxy_configjson)
   - Log Level Configuration
@@ -59,54 +61,6 @@ netsh advfirewall firewall add rule name="SV241 Alpaca Proxy" dir=in action=allo
 
 This command adds an inbound rule specifically for the `AscomAlpacaProxy.exe` application, allowing it to receive connections from your astronomy software.
 
-
-### ASCOM Switch Device Actions
-
-To provide functionality beyond the standard ASCOM `Switch` specification, the driver implements several custom **Actions**. These can be triggered by ASCOM client software that supports them, or manually via API calls.
-
-#### Master Switch Actions
-
-These actions provide a "Master Switch" to control all power outputs simultaneously.
-
-*   `MasterSwitchOn`: Turns all power outputs on.
-*   `MasterSwitchOff`: Turns all power outputs off.
-
-#### Sensor Readout Actions
-
-These actions allow reading the main power metrics directly from the `Switch` device, which can be convenient in some clients.
-
-*   `getvoltage`: Returns the current input voltage (in Volts).
-*   `getcurrent`: Returns the total current draw (in Amps).
-*   `getpower`: Returns the total power consumption (in Watts).
-*   `getlenstemperature`: Returns the current objective/lens temperature (in °C). Helpful for scripts that need this specific metric.
-
-
-#### Using Actions via API (e.g., with `curl`)
-
-You can trigger these actions from the command line using a tool like `curl`. The endpoint for actions is `/api/v1/switch/0/action` and the method is `PUT`.
-
-**Example: Turn all switches off**
-```bash
-curl -X PUT -d "Action=MasterSwitchOff" http://localhost:32241/api/v1/switch/0/action
-```
-
-**Example: Get current voltage**
-```bash
-curl -X PUT -d "Action=getvoltage" http://localhost:32241/api/v1/switch/0/action
-```
-> **Note for Windows PowerShell users:** The standard `curl` command in PowerShell is an alias for `Invoke-WebRequest`, which has a different syntax and requires the `Content-Type` to be set explicitly. Here are the correct PowerShell commands:
-> ```powershell
-> # Turn all switches off
-> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOff" -ContentType "application/x-www-form-urlencoded"
->
-> # Turn all switches on
-> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOn" -ContentType "application/x-www-form-urlencoded"
->
-> # Read sensor values
-> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getvoltage" -ContentType "application/x-www-form-urlencoded"
-> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getcurrent" -ContentType "application/x-www-form-urlencoded"
-> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getlenstemperature" -ContentType "application/x-www-form-urlencoded"
-> ```
 
 ## Accessing the Setup Page
 
@@ -313,6 +267,111 @@ If you prefer to set up the driver manually, or if the helper script fails for a
 
 > **Note:** Repeat this process for the `ObservingConditions` device to also add the environmental sensors manually.
 
+
+## REST API & Automation
+
+This section covers advanced usage for power users who want to control the SV241 via command line, scripts, or custom integrations.
+
+### Custom ASCOM Actions
+
+To provide functionality beyond the standard ASCOM `Switch` specification, the driver implements several custom **Actions**. These can be triggered by ASCOM client software that supports them, or manually via API calls.
+
+#### Master Switch Actions
+
+These actions provide a "Master Switch" to control all power outputs simultaneously.
+
+*   `MasterSwitchOn`: Turns all power outputs on.
+*   `MasterSwitchOff`: Turns all power outputs off.
+
+#### Sensor Readout Actions
+
+These actions allow reading the main power metrics directly from the `Switch` device, which can be convenient in some clients.
+
+*   `getvoltage`: Returns the current input voltage (in Volts).
+*   `getcurrent`: Returns the total current draw (in Amps).
+*   `getpower`: Returns the total power consumption (in Watts).
+*   `getlenstemperature`: Returns the current objective/lens temperature (in °C). Helpful for scripts that need this specific metric.
+
+
+#### Using Actions via API (e.g., with `curl`)
+
+You can trigger these actions from the command line using a tool like `curl`. The endpoint for actions is `/api/v1/switch/0/action` and the method is `PUT`.
+
+**Example: Turn all switches off**
+```bash
+curl -X PUT -d "Action=MasterSwitchOff" http://localhost:32241/api/v1/switch/0/action
+```
+
+**Example: Get current voltage**
+```bash
+curl -X PUT -d "Action=getvoltage" http://localhost:32241/api/v1/switch/0/action
+```
+> **Note for Windows PowerShell users:** The standard `curl` command in PowerShell is an alias for `Invoke-WebRequest`, which has a different syntax and requires the `Content-Type` to be set explicitly. Here are the correct PowerShell commands:
+> ```powershell
+> # Turn all switches off
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOff" -ContentType "application/x-www-form-urlencoded"
+>
+> # Turn all switches on
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=MasterSwitchOn" -ContentType "application/x-www-form-urlencoded"
+>
+> # Read sensor values
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getvoltage" -ContentType "application/x-www-form-urlencoded"
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getcurrent" -ContentType "application/x-www-form-urlencoded"
+> Invoke-WebRequest -Uri http://localhost:32241/api/v1/switch/0/action -Method PUT -Body "Action=getlenstemperature" -ContentType "application/x-www-form-urlencoded"
+> ```
+
+### Controlling Individual Switches via REST API
+
+Beyond the custom actions, you can directly control individual switches using the standard ASCOM Alpaca `Switch` endpoints.
+
+> [!IMPORTANT]
+> **Switch IDs are dynamic.** When you disable a switch in the configuration (set to "Disabled"), it is removed from the ASCOM device list. This causes all subsequent switch IDs to shift down. For example, if DC1 is disabled, DC2 moves from ID 1 to ID 0. Always check your current switch configuration to determine the correct IDs.
+
+**Endpoints:**
+- `PUT /api/v1/switch/0/setswitch` – Set a switch on or off (parameters: `Id`, `State`)
+- `PUT /api/v1/switch/0/setswitchvalue` – Set a switch value (parameters: `Id`, `Value`) – used for adjustable voltage (0-15V)
+- `GET /api/v1/switch/0/getswitch?Id=X` – Get the current state of a switch (on/off)
+- `GET /api/v1/switch/0/getswitchvalue?Id=X` – Get the current value of a switch (e.g., voltage for adj_conv)
+
+**Examples using native `curl` (Linux/Mac/Git Bash):**
+
+```bash
+# Turn switch ID 0 (typically DC1) ON
+curl -X PUT -d "Id=0&State=true" http://localhost:32241/api/v1/switch/0/setswitch
+
+# Turn switch ID 0 OFF
+curl -X PUT -d "Id=0&State=false" http://localhost:32241/api/v1/switch/0/setswitch
+
+# Get the current state of switch ID 0
+curl "http://localhost:32241/api/v1/switch/0/getswitch?Id=0"
+
+# Set adjustable converter to 9.5V (requires EnableAlpacaVoltageControl in proxy config)
+# Replace ID 7 with the actual ID of adj_conv in your configuration
+curl -X PUT -d "Id=7&Value=9.5" http://localhost:32241/api/v1/switch/0/setswitchvalue
+
+# Get the current voltage of the adjustable converter
+curl "http://localhost:32241/api/v1/switch/0/getswitchvalue?Id=7"
+```
+
+**Examples using Windows PowerShell:**
+
+```powershell
+# Turn switch ID 0 ON
+Invoke-WebRequest -Uri "http://localhost:32241/api/v1/switch/0/setswitch" -Method PUT -Body "Id=0&State=true" -ContentType "application/x-www-form-urlencoded"
+
+# Turn switch ID 0 OFF
+Invoke-WebRequest -Uri "http://localhost:32241/api/v1/switch/0/setswitch" -Method PUT -Body "Id=0&State=false" -ContentType "application/x-www-form-urlencoded"
+
+# Get the current state of switch ID 0
+Invoke-WebRequest -Uri "http://localhost:32241/api/v1/switch/0/getswitch?Id=0"
+
+# Set adjustable converter to 9.5V (requires EnableAlpacaVoltageControl in proxy config)
+# Replace ID 7 with the actual ID of adj_conv in your configuration
+Invoke-WebRequest -Uri "http://localhost:32241/api/v1/switch/0/setswitchvalue" -Method PUT -Body "Id=7&Value=9.5" -ContentType "application/x-www-form-urlencoded"
+
+# Get the current voltage of the adjustable converter
+Invoke-WebRequest -Uri "http://localhost:32241/api/v1/switch/0/getswitchvalue?Id=7"
+```
 
 ## Configuration Reference
 
