@@ -228,9 +228,13 @@ func (a *API) HandleSwitchGetSwitch(w http.ResponseWriter, r *http.Request) {
 
 	if shortKey == "all" {
 		allOn := true
-		// Loop through all defined switches (except the master itself)
+		// Loop through all defined switches (except the master itself and sensors)
 		for _, key := range config.ShortSwitchKeyByID {
 			if key == "all" {
+				continue
+			}
+			// Skip sensor keys - they are not in Status.Data
+			if config.IsSensorSwitch(key) {
 				continue
 			}
 			if val, ok := serial.Status.Data[key]; ok {
@@ -319,6 +323,10 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 		allOn := true
 		for _, key := range config.ShortSwitchKeyByID {
 			if key == "all" {
+				continue
+			}
+			// Skip sensor keys - they are not in Status.Data
+			if config.IsSensorSwitch(key) {
 				continue
 			}
 			if val, ok := serial.Status.Data[key]; ok {
