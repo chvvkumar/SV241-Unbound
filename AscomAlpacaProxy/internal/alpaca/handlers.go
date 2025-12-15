@@ -3,6 +3,7 @@ package alpaca
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -307,6 +308,8 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 				if key == config.SensorCurrentKey {
 					floatVal = floatVal / 1000.0
 				}
+				// Round to 2 decimal places for consistency with WebUI
+				floatVal = math.Round(floatVal*100) / 100
 				FloatResponse(w, r, floatVal)
 				return
 			}
@@ -583,13 +586,20 @@ func (a *API) HandleSwitchSetSwitchName(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+
+	internalName := config.SwitchIDMap[id]
+
+	// Sensors have fixed names and cannot be renamed
+	if config.IsSensorSwitch(internalName) {
+		ErrorResponse(w, r, http.StatusOK, 0x400, "Sensor switches have fixed names and cannot be renamed")
+		return
+	}
+
 	newName, ok := GetFormValueIgnoreCase(r, "Name")
 	if !ok {
 		ErrorResponse(w, r, http.StatusBadRequest, http.StatusBadRequest, "Missing Name parameter")
 		return
 	}
-
-	internalName := config.SwitchIDMap[id]
 	conf := config.Get()
 	conf.SwitchNames[internalName] = newName
 	logger.Info("Set custom name for switch %d ('%s') to '%s'", id, internalName, newName)
@@ -677,6 +687,12 @@ func (a *API) HandleSwitchMinSwitchValue(w http.ResponseWriter, r *http.Request)
 func (a *API) HandleSwitchSwitchStep(w http.ResponseWriter, r *http.Request) {
 	if id, ok := ParseSwitchID(w, r); ok {
 		key := config.SwitchIDMap[id]
+
+		// Sensors have 0.1 step for precision
+		if config.IsSensorSwitch(key) {
+			FloatResponse(w, r, 0.1)
+			return
+		}
 
 		if key == "adj_conv" && config.Get().EnableAlpacaVoltageControl {
 			FloatResponse(w, r, 0.1)
