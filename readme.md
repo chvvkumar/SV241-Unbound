@@ -100,7 +100,8 @@ The controller communicates over serial at **115200 baud**. Commands are sent as
 
 *   **Request:** `{"get": "status"}`
 *   **Response:** A JSON object with the on/off state (`1`/`0`) of all outputs.
-    *   Example: `{"status":{"d1":1,"d2":1,"d3":0,...}}`
+    *   Example: `{"status":{"d1":1,"d2":1,"d3":0,...},"dm":[0,1]}`
+    *   `dm`: Dew heater modes array (0: Manual, 1: PID, 2: Ambient Tracking, 3: PID-Sync, 4: Min Temp, 5: Disabled)
 
 ### Set Power State
 
@@ -113,8 +114,10 @@ The controller communicates over serial at **115200 baud**. Commands are sent as
 
 *   **Reboot:** `{"command": "reboot"}`
 *   **Factory Reset:** `{"command": "factory_reset"}`
+*   **Manual Sensor Drying:** `{"command": "dry_sensor"}`
+    *   Triggers the SHT40 internal heater to remove condensation. This is a blocking operation.
 *   **Get Firmware Version:** `{"get": "version"}`
-    *   **Response:** A JSON object containing the firmware version (e.g., `{"version": "1.0.0"}`). This value is defined in the firmware source code.
+    *   **Response:** A JSON object containing the firmware version (e.g., `{"version": "1.0.0"}`).
 
 ### Get/Set Full Configuration
 
@@ -257,5 +260,41 @@ This is an array that can contain up to two heater configuration objects. To upd
         ```json
         {"sc":{"ps":{"d1":true},"av":8.5,"dh":[{"m":1,"to":2.5,"kp":150}]}}
         ```
+
+---
+
+### Using PowerShell for Direct Serial Communication
+
+You can send commands directly to the controller via PowerShell without the proxy. Replace `COM9` with your actual COM port.
+
+**Generic Template:**
+```powershell
+$port = New-Object System.IO.Ports.SerialPort "COM9", 115200
+$port.Open()
+$port.WriteLine('{"get": "sensors"}')  # Your command here
+Start-Sleep -Milliseconds 200
+$port.ReadExisting()
+$port.Close()
+```
+
+**Example: Read Sensor Data**
+```powershell
+$port.WriteLine('{"get": "sensors"}')
+# Response: {"v":12.8,"i":802,"p":10.3,"t_amb":18.5,"h_amb":65,...}
+```
+
+**Example: Turn DC1 On**
+```powershell
+$port.WriteLine('{"set": {"d1": true}}')
+# Response: {"status":{"d1":1,"d2":0,...}}
+```
+
+**Example: Set Heater 1 to Manual 50%**
+```powershell
+$port.WriteLine('{"sc": {"dh": [{"m": 0, "mp": 50}]}}')
+# Response: Full config JSON
+```
+
+> **Tip:** For interactive testing, use a serial terminal like **PuTTY** (115200 baud) or the **Arduino IDE Serial Monitor**.
 
 </details>
