@@ -74,7 +74,7 @@ It includes features like auto-detection and custom ASCOM actions.
 
 **For detailed information on its features, configuration, and usage, please see the dedicated documentation:**
 
-[**ASCOM Alpaca Proxy Documentation](./AscomAlpacaProxy/)
+[**ASCOM Alpaca Proxy Documentation**](./AscomAlpacaProxy/)
 
 ---
 
