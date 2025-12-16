@@ -123,6 +123,9 @@ Configure power switch behavior:
 *   **Custom Name:** Assign user-friendly names that appear in ASCOM clients.
 *   **Voltage:** Set the adjustable converter output voltage (5-15V).
 
+> [!IMPORTANT]
+> **ASCOM Client Reconnection Required:** When you enable or disable switches, the ASCOM switch IDs change dynamically. Your astronomy software (NINA, SGP, etc.) must **disconnect and reconnect** to the Switch device to see the updated switch list.
+
 #### Dew Heaters Tab
 Configure the two PWM dew heater outputs:
 *   **Enable on Startup:** Automatically enable the heater when the device boots.
@@ -154,7 +157,10 @@ Configure the proxy application itself:
 *   **ASCOM Features:** Enable/disable voltage slider control and the virtual Master Power switch.
 *   **Telemetry:** Configure history retention period.
 
-> **Important:** When disabling Auto-Detect Port, make sure to also specify a serial port name. See [Configuration Reference](#configuration-reference) for details.
+> [!IMPORTANT]
+> **ASCOM Client Reconnection Required:** Changes to the ASCOM Features settings (Master Power switch, Voltage Slider mode) also require your astronomy software to **disconnect and reconnect** to see the updated switch configuration.
+
+> **Note:** When disabling Auto-Detect Port, make sure to also specify a serial port name. See [Configuration Reference](#configuration-reference) for details.
 
 ### Live Log Panel
 
