@@ -80,7 +80,7 @@ func logTelemetry() {
 
 	if loggerC != nil && loggerC.csvWriter != nil {
 		// Prepare CSV record
-		// Format: timestamp_iso, voltage, current, power, temp_amb, hum_amb, dew_point, temp_lens, pwm1, pwm2
+		// Format: timestamp_iso, voltage, current, power, temp_amb, hum_amb, dew_point, temp_lens, pwm1, pwm2, [switches...]
 		record := []string{
 			now.Format(time.RFC3339),
 			fmt.Sprintf("%v", data["v"]),
@@ -93,6 +93,68 @@ func logTelemetry() {
 			fmt.Sprintf("%v", data["pwm1"]),
 			fmt.Sprintf("%v", data["pwm2"]),
 		}
+
+		// Add switch states - get current status data
+		serial.Status.RLock()
+		statusData := serial.Status.Data
+		serial.Status.RUnlock()
+
+		// Get switch map (thread-safe copy)
+		config.SwitchMapMutex.RLock()
+		switchKeys := make(map[int]string)
+		for id, key := range config.SwitchIDMap {
+			switchKeys[id] = key
+		}
+		config.SwitchMapMutex.RUnlock()
+
+		// Add each switch state to the record
+		// Order: dc1-dc5, usbc12, usb345, adj_conv (skip sensors and master_power)
+		switchOrder := []string{"dc1", "dc2", "dc3", "dc4", "dc5", "usbc12", "usb345", "adj_conv"}
+		for _, longKey := range switchOrder {
+			shortKey := config.ShortSwitchIDMap[longKey]
+
+			// Check if this switch is enabled (exists in current SwitchIDMap)
+			isEnabled := false
+			for _, key := range switchKeys {
+				if key == longKey {
+					isEnabled = true
+					break
+				}
+			}
+
+			if !isEnabled {
+				// Disabled switch - empty value
+				record = append(record, "")
+			} else if statusData == nil {
+				// No status data yet
+				record = append(record, "")
+			} else if val, ok := statusData[shortKey]; ok {
+				// Get switch state (can be bool, int, or float)
+				switch v := val.(type) {
+				case bool:
+					if v {
+						record = append(record, "1")
+					} else {
+						record = append(record, "0")
+					}
+				case float64:
+					// Special case for adj_conv: log actual voltage, not just 0/1
+					if longKey == "adj_conv" {
+						record = append(record, fmt.Sprintf("%.1f", v))
+					} else if v >= 1.0 {
+						record = append(record, "1")
+					} else {
+						record = append(record, "0")
+					}
+				default:
+					record = append(record, fmt.Sprintf("%v", v))
+				}
+			} else {
+				// Key not in status data
+				record = append(record, "")
+			}
+		}
+
 		if err := loggerC.csvWriter.Write(record); err != nil {
 			logger.Error("Failed to write to CSV: %v", err)
 		} else {
@@ -137,7 +199,10 @@ func rotateLogFile(newDate string) {
 	}
 
 	if writeHeader {
-		header := []string{"timestamp", "voltage", "current", "power", "t_amb", "h_amb", "dew_point", "t_lens", "pwm1", "pwm2"}
+		header := []string{
+			"timestamp", "voltage", "current", "power", "t_amb", "h_amb", "dew_point", "t_lens", "pwm1", "pwm2",
+			"dc1", "dc2", "dc3", "dc4", "dc5", "usbc12", "usb345", "adj_conv",
+		}
 		loggerC.csvWriter.Write(header)
 		loggerC.csvWriter.Flush()
 	}
