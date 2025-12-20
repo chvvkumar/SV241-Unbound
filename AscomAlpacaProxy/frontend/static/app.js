@@ -209,6 +209,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function checkFirmwareUpdate() {
+        try {
+            const bundledRes = await fetch('/flasher/firmware/version.json');
+            if (!bundledRes.ok) return;
+            const bundledData = await bundledRes.json();
+            const bundledVersion = bundledData.version;
+            const installedVersion = firmwareVersionElement?.textContent;
+
+            const banner = document.getElementById('update-banner');
+            if (banner && installedVersion && bundledVersion &&
+                installedVersion !== 'Unknown' && installedVersion !== '-' &&
+                installedVersion !== bundledVersion) {
+                banner.classList.remove('hidden');
+            }
+        } catch (e) {
+            console.error("Failed to check firmware update", e);
+        }
+    }
+
     async function fetchProxyVersion() {
         try {
             const response = await fetch('/api/v1/proxy/version');
@@ -1567,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetchProxyConfig();
         await fetchConfig();
         await fetchFirmwareVersion();
+        await checkFirmwareUpdate();
         await fetchProxyVersion();
 
         // Setup specific event listeners
