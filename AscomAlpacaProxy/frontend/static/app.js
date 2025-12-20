@@ -211,20 +211,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function checkFirmwareUpdate() {
         try {
+            // Fetch installed version from API (not DOM) to ensure accuracy
+            const fwRes = await fetch('/api/v1/firmware/version');
+            if (!fwRes.ok) return; // Device not connected - don't show banner
+            const fwData = await fwRes.json();
+            const installedVersion = fwData.version;
+            if (!installedVersion || installedVersion.toLowerCase() === 'unknown') return;
+
             const bundledRes = await fetch('/flasher/firmware/version.json');
             if (!bundledRes.ok) return;
             const bundledData = await bundledRes.json();
             const bundledVersion = bundledData.version;
-            const installedVersion = firmwareVersionElement?.textContent;
 
             const banner = document.getElementById('update-banner');
-            if (banner && installedVersion && bundledVersion &&
-                installedVersion !== 'Unknown' && installedVersion !== '-' &&
-                installedVersion !== bundledVersion) {
+            if (banner && bundledVersion && installedVersion !== bundledVersion) {
                 banner.classList.remove('hidden');
             }
         } catch (e) {
-            console.error("Failed to check firmware update", e);
+            // Device not connected or error - don't show banner
         }
     }
 
@@ -250,8 +254,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // Wait for firmware connection (10 seconds to allow device reboot after flashing)
         await new Promise(resolve => setTimeout(resolve, 10000));
 
-        const installedVersion = firmwareVersionElement?.textContent;
-        const isConnected = installedVersion && installedVersion !== '-' && installedVersion !== 'Unknown';
+        // Fetch firmware version directly from API (more reliable than DOM element)
+        let installedVersion = null;
+        try {
+            const fwRes = await fetch('/api/v1/firmware/version');
+            if (fwRes.ok) {
+                const fwData = await fwRes.json();
+                installedVersion = fwData.version;
+            }
+        } catch (e) {
+            // Device not connected
+        }
+
+        const isConnected = installedVersion && installedVersion.toLowerCase() !== 'unknown';
 
         if (isConnected) {
             // Firmware is connected - check for update
@@ -279,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusEl.innerHTML = '⚠ Compatible firmware not detected.<br>Please flash SV241-Unbound to get started.';
             actionsEl.innerHTML = `
                 <button class="btn-primary" onclick="releaseAndFlash()">Flash Firmware</button>
-                <button class="btn-secondary" onclick="completeOnboarding()">I\\'ll do it later</button>
+                <button class="btn-secondary" onclick="completeOnboarding()">I'll do it later</button>
             `;
         }
     }
