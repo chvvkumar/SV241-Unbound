@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>SV241-Unbound Firmware Update</title>
+
+    <style>
+        @font-face {
+            font-family: 'Outfit';
+            font-weight: 300;
+            src: url('/static/fonts/Outfit-Light.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Outfit';
+            font-weight: 400;
+            src: url('/static/fonts/Outfit-Regular.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Outfit';
+            font-weight: 500;
+            src: url('/static/fonts/Outfit-Medium.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Outfit';
+            font-weight: 600;
+            src: url('/static/fonts/Outfit-SemiBold.ttf') format('truetype');
+        }
+
+        :root {
+            color-scheme: dark;
+            --bg-color-start: #0f0c29;
+            --bg-color-mid: #302b63;
+            --bg-color-end: #24243e;
+            --surface-color: rgba(255, 255, 255, 0.05);
+            --surface-border: rgba(255, 255, 255, 0.1);
+            --primary-color: #00d2ff;
+            --primary-glow: rgba(0, 210, 255, 0.4);
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --success-color: #4caf50;
+            --danger-color: #ff4b4b;
+            --warning-bg: rgba(255, 75, 75, 0.1);
+            --info-bg: rgba(0, 210, 255, 0.1);
+            --font-main: 'Outfit', sans-serif;
+            --radius-lg: 16px;
+            --shadow-soft: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: linear-gradient(135deg, var(--bg-color-start), var(--bg-color-mid), var(--bg-color-end));
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        .container {
+            padding: 2.5rem;
+            border-radius: var(--radius-lg);
+            background: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--surface-border);
+            box-shadow: var(--shadow-soft);
+            max-width: 550px;
+            width: 90%;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-weight: 600;
+            background: linear-gradient(90deg, #fff, var(--primary-color));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+
+        .warning {
+            background-color: var(--warning-bg);
+            color: var(--danger-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border: 1px solid var(--danger-color);
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .info {
+            background-color: var(--info-bg);
+            color: var(--primary-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border: 1px solid var(--primary-color);
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .version-info {
+            display: flex;
+            justify-content: space-around;
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .version-item {
+            text-align: center;
+        }
+
+        .version-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .version-value {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .version-value.match {
+            color: var(--success-color);
+        }
+
+        .version-value.mismatch {
+            color: var(--danger-color);
+        }
+
+        esp-web-install-button {
+            --esp-tools-button-color: var(--primary-color);
+            --esp-tools-button-text-color: #0f0c29;
+        }
+
+        #status {
+            margin-top: 1.5rem;
+            font-style: italic;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        #release-btn {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+            font-family: var(--font-main);
+        }
+
+        #release-btn:hover {
+            background: rgba(0, 210, 255, 0.1);
+        }
+
+        #release-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #resume-btn {
+            background: transparent;
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+            font-family: var(--font-main);
+        }
+
+        #resume-btn:hover {
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        #resume-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+    <script type="module" src="/flasher/js/install-button.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Firmware Update</h1>
+        <p style="margin-top: -1rem; color: #aaa;">SV241-Unbound</p>
+
+        <div class="version-info">
+            <div class="version-item">
+                <div class="version-label">Installed Firmware</div>
+                <div class="version-value" id="installed-version">Loading...</div>
+            </div>
+            <div class="version-item">
+                <div class="version-label">Bundled Firmware</div>
+                <div class="version-value" id="bundled-version">Loading...</div>
+            </div>
+        </div>
+
+        <div id="status-message" class="info" style="display: none;"></div>
+
+        <div class="warning">
+            <strong>Warning:</strong> This process will erase all existing data and settings on your device. Ensure the
+            device is stable and do not disconnect it during the process.
+        </div>
+
+        <p>Before flashing, you must release the serial port so the browser can access it:</p>
+
+        <button id="release-btn" onclick="releaseSerialPort()">Release Serial Port</button>
+        <button id="resume-btn" onclick="resumeReconnect()" style="display: none;">Resume Reconnect</button>
+
+        <div>
+            <esp-web-install-button id="install-button"></esp-web-install-button>
+        </div>
+
+        <div id="status">Initializing...</div>
+
+        <a href="#" class="back-link"
+            onclick="event.preventDefault(); fetch('/api/serial/resume', {method: 'POST'}).finally(() => window.location.href = '/setup');">←
+            Back to Setup</a>
+    </div>
+
+    <script type="module">
+        const statusEl = document.getElementById('status');
+        const installedVersionEl = document.getElementById('installed-version');
+        const bundledVersionEl = document.getElementById('bundled-version');
+        const statusMessageEl = document.getElementById('status-message');
+        const installButton = document.querySelector("esp-web-install-button");
+        const releaseBtn = document.getElementById('release-btn');
+
+        // Construct the base URL from the current page's location
+        const baseUrl = window.location.origin + '/flasher/';
+
+        const manifest = {
+            name: "SV241-Unbound",
+            builds: [
+                {
+                    chipFamily: "ESP32",
+                    parts: [
+                        { path: `${baseUrl}firmware/bootloader.bin`, offset: 0x1000 },
+                        { path: `${baseUrl}firmware/partitions.bin`, offset: 0x8000 },
+                        { path: `${baseUrl}firmware/firmware.bin`, offset: 0x10000 },
+                    ],
+                },
+            ],
+        };
+
+        const manifestString = JSON.stringify(manifest);
+        const manifestBlob = new Blob([manifestString], { type: 'application/json' });
+        const manifestUrl = URL.createObjectURL(manifestBlob);
+        installButton.manifest = manifestUrl;
+        installButton.setAttribute('erase-first', '');
+
+        // Listen for the install dialog state changes
+        installButton.addEventListener('state-changed', (e) => {
+            // When the dialog is closed/finished, reload the page to show updated version
+            if (e.detail.state === 'FINISHED') {
+                statusEl.textContent = 'Firmware update complete! Resuming connection...';
+                // Resume reconnect and reload after a short delay
+                fetch('/api/serial/resume', { method: 'POST' }).finally(() => {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                });
+            }
+        });
+
+        // Fetch version info
+        async function fetchVersions() {
+            try {
+                const [fwRes, bundledRes] = await Promise.all([
+                    fetch('/api/v1/firmware/version'),
+                    fetch('/flasher/firmware/version.json')
+                ]);
+
+                const fwData = await fwRes.json();
+                const bundledData = await bundledRes.json();
+
+                const installedVersion = fwData.version || 'Unknown';
+                const bundledVersion = bundledData.version || 'Unknown';
+
+                installedVersionEl.textContent = installedVersion;
+                bundledVersionEl.textContent = bundledVersion;
+
+                // Compare versions
+                if (installedVersion === bundledVersion) {
+                    installedVersionEl.classList.add('match');
+                    bundledVersionEl.classList.add('match');
+                    statusMessageEl.textContent = '✓ Firmware is up to date. No update required.';
+                    statusMessageEl.className = 'info';
+                    statusMessageEl.style.display = 'block';
+                } else if (installedVersion !== 'Unknown') {
+                    installedVersionEl.classList.add('mismatch');
+                    statusMessageEl.innerHTML = '⚠ Firmware version mismatch. Consider updating to ensure compatibility.';
+                    statusMessageEl.className = 'warning';
+                    statusMessageEl.style.display = 'block';
+                }
+
+                statusEl.textContent = 'Ready to flash. All data will be erased.';
+            } catch (e) {
+                installedVersionEl.textContent = 'Not connected';
+                bundledVersionEl.textContent = 'Unknown';
+                statusEl.textContent = 'Could not fetch version info. Device may not be connected.';
+            }
+        }
+
+        fetchVersions();
+
+        // Make releaseSerialPort available globally
+        window.releaseSerialPort = async function () {
+            releaseBtn.disabled = true;
+            releaseBtn.textContent = 'Releasing...';
+
+            try {
+                const response = await fetch('/api/serial/release', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    releaseBtn.textContent = '✓ Port Released';
+                    releaseBtn.style.display = 'none';
+                    document.getElementById('resume-btn').style.display = 'inline-block';
+                    statusEl.textContent = 'Serial port released. You can now click CONNECT to flash.';
+                } else {
+                    releaseBtn.textContent = 'Release Failed';
+                    releaseBtn.disabled = false;
+                    statusEl.textContent = 'Failed to release port: ' + (data.error || 'Unknown error');
+                }
+            } catch (e) {
+                releaseBtn.textContent = 'Release Failed';
+                releaseBtn.disabled = false;
+                statusEl.textContent = 'Error releasing port: ' + e.message;
+            }
+        };
+
+        // Resume reconnect after flashing is done
+        window.resumeReconnect = async function () {
+            const resumeBtn = document.getElementById('resume-btn');
+            resumeBtn.disabled = true;
+            resumeBtn.textContent = 'Resuming...';
+
+            try {
+                const response = await fetch('/api/serial/resume', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    resumeBtn.textContent = '✓ Reconnect Resumed';
+                    statusEl.textContent = 'Auto-reconnect resumed. The proxy will reconnect shortly.';
+                    // Reload version info after a delay
+                    setTimeout(fetchVersions, 6000);
+                } else {
+                    resumeBtn.textContent = 'Resume Failed';
+                    resumeBtn.disabled = false;
+                }
+            } catch (e) {
+                resumeBtn.textContent = 'Resume Failed';
+                resumeBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+
+</html>

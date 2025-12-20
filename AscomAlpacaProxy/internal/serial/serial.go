@@ -61,6 +61,10 @@ var (
 	// Initialized to -1.0 to indicate "unknown/unset" (use config default).
 	ActiveVoltageTarget = -1.0
 	VoltageMutex        sync.RWMutex
+
+	// reconnectPaused prevents the connection manager from auto-reconnecting.
+	// Used when the flasher releases the port for external access.
+	reconnectPaused = false
 )
 
 // StartManager initializes all background tasks for serial communication.
@@ -265,6 +269,13 @@ func ManageConnection(initDone chan struct{}) {
 		logger.Debug("Connection Manager: Checking connection status...")
 
 		portMutex.Lock()
+		// Skip reconnection if paused (e.g., during flashing)
+		if reconnectPaused {
+			logger.Debug("Connection Manager: Reconnect is paused. Skipping.")
+			portMutex.Unlock()
+			continue
+		}
+
 		isConnected := (sv241Port != nil)
 		if !isConnected {
 			logger.Info("Connection Manager: Device is disconnected. Attempting to connect...")
@@ -444,6 +455,41 @@ func handleDisconnect() {
 	} else {
 		lastSentStatus = events.Disconnected
 	}
+}
+
+// ReleasePort closes the serial port to allow external tools (e.g., web flasher) to access it.
+// It also pauses auto-reconnect until ResumeReconnect is called.
+func ReleasePort() error {
+	portMutex.Lock()
+	defer portMutex.Unlock()
+
+	reconnectPaused = true
+	logger.Info("ReleasePort: Auto-reconnect paused.")
+
+	if sv241Port == nil {
+		logger.Info("ReleasePort: Port is already closed.")
+		return nil
+	}
+
+	logger.Info("ReleasePort: Closing serial port for external access...")
+	handleDisconnect()
+	logger.Info("ReleasePort: Serial port closed successfully.")
+	return nil
+}
+
+// ResumeReconnect allows the connection manager to auto-reconnect again.
+func ResumeReconnect() {
+	portMutex.Lock()
+	defer portMutex.Unlock()
+	reconnectPaused = false
+	logger.Info("ResumeReconnect: Auto-reconnect resumed.")
+}
+
+// IsReconnectPaused returns true if auto-reconnect is paused (e.g., for firmware flashing).
+func IsReconnectPaused() bool {
+	portMutex.Lock()
+	defer portMutex.Unlock()
+	return reconnectPaused
 }
 
 // --- Cache Management ---

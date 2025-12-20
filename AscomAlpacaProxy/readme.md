@@ -160,6 +160,7 @@ Fine-tune sensor readings:
 Maintenance and backup functions:
 *   **Manual Actions:** Trigger a sensor drying cycle manually.
 *   **Backup & Restore:** Export or import the complete configuration (both proxy and firmware settings).
+*   **Firmware Update:** Opens the integrated web flasher to update the SV241 firmware. This uses the browser's Web Serial API to flash directly from the browser—no additional tools required.
 *   **Danger Zone:** Reboot the device or perform a factory reset.
 
 #### Proxy Tab

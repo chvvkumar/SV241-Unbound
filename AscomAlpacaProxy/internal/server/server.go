@@ -55,6 +55,17 @@ func setupRoutes(frontendFS fs.FS, appVersion string) {
 	http.HandleFunc("/setup", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, frontendFS, "setup.html")
 	})
+	http.HandleFunc("/flasher", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, frontendFS, "flasher/index.html")
+	})
+	// Create a sub-filesystem for the flasher directory so that /flasher/firmware/x.bin works correctly
+	flasherFS, err := fs.Sub(frontendFS, "flasher")
+	if err != nil {
+		logger.Error("Failed to create flasher sub-filesystem: %v", err)
+	} else {
+		http.Handle("/flasher/", http.StripPrefix("/flasher/", http.FileServer(http.FS(flasherFS))))
+	}
+
 	http.Handle("/static/", http.FileServer(http.FS(frontendFS)))
 
 	// --- Management API ---
@@ -77,6 +88,8 @@ func setupRoutes(frontendFS fs.FS, appVersion string) {
 	http.HandleFunc("/api/v1/telemetry/history", telemetry.HandleGetHistory)
 	http.HandleFunc("/api/v1/telemetry/download", telemetry.HandleDownloadCSV)
 	http.HandleFunc("/api/v1/log/download", handleDownloadLog)
+	http.HandleFunc("/api/serial/release", handleSerialRelease)
+	http.HandleFunc("/api/serial/resume", handleSerialResume)
 
 	// New settings endpoint combines getting and setting proxy config
 	http.HandleFunc("/api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
@@ -446,4 +459,47 @@ func handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		go serial.Reconnect("")
 		fmt.Fprint(w, "Configuration restored successfully. Logic will retry connection in background.")
 	}
+}
+
+// handleSerialRelease closes the serial port to allow external tools (e.g., web flasher) to access it.
+func handleSerialRelease(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	logger.Info("API request to release serial port received.")
+	err := serial.ReleasePort()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		logger.Error("Failed to release serial port: %v", err)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Serial port released. Auto-reconnect is paused.",
+	})
+}
+
+// handleSerialResume resumes auto-reconnect after flashing is complete.
+func handleSerialResume(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	logger.Info("API request to resume serial reconnect received.")
+	serial.ResumeReconnect()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Auto-reconnect resumed.",
+	})
 }

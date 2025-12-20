@@ -1,7 +1,34 @@
 import os
+import re
 import json
 import subprocess
 Import("env")
+
+def extract_firmware_version(env):
+    """Extract FIRMWARE_VERSION from config_manager.h and write to version.json"""
+    project_dir = env.subst("$PROJECT_DIR")
+    config_manager_path = os.path.join(project_dir, "src", "config_manager.h")
+    version_json_path = os.path.join(project_dir, "AscomAlpacaProxy", "frontend", "flasher", "firmware", "version.json")
+    
+    try:
+        with open(config_manager_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # Extract version using regex: #define FIRMWARE_VERSION "x.y.z"
+        match = re.search(r'#define\s+FIRMWARE_VERSION\s+"([^"]+)"', content)
+        if match:
+            version = match.group(1)
+            print(f"--> Extracted firmware version: {version}")
+            
+            # Write to version.json
+            version_data = {"version": version}
+            with open(version_json_path, "w", encoding="utf-8") as f:
+                json.dump(version_data, f, indent=4)
+            print(f"--> Updated {version_json_path}")
+        else:
+            print("Warning: Could not find FIRMWARE_VERSION in config_manager.h")
+    except Exception as e:
+        print(f"Error extracting firmware version: {e}")
 
 def build_go_proxy(source, target, env):
     """Compiles the Go proxy with version info."""
@@ -136,6 +163,7 @@ def create_installer(source, target, env):
 
 def build_and_create_installer(source, target, env):
     """A single function to run both build steps in order."""
+    extract_firmware_version(env)
     build_go_proxy(source, target, env)
     create_installer(source, target, env)
 

@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalConfig = {};
     let originalProxyConfig = {};
     let statusPollCounter = 0;
+    let serialPortConnected = false; // Tracks actual serial port connection state from backend
+    let reconnectPaused = false; // Tracks if reconnect is paused (e.g., for firmware flashing)
     let configDirty = false; // Prevents periodic refresh from overwriting unsaved config changes
     let switchIDMap = {
         0: "dc1", 1: "dc2", 2: "dc3", 3: "dc4", 4: "dc5",
@@ -148,7 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (proxyConf.serialPortName) {
-            if (statusOk) {
+            if (reconnectPaused) {
+                // Port is intentionally released (e.g., for firmware flashing)
+                document.querySelectorAll('.save-config-button').forEach(btn => btn.disabled = true);
+                connectionIndicator.className = 'paused';
+                if (connectionText) connectionText.textContent = "Paused";
+                comPortElement.textContent = `${proxyConf.serialPortName} (Paused)`;
+            } else if (statusOk) {
                 document.querySelectorAll('.save-config-button').forEach(btn => btn.disabled = false);
                 connectionIndicator.className = 'connected';
                 if (connectionText) connectionText.textContent = "Connected";
@@ -591,8 +599,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     applyProxyConfig(proxyConf, availableIPs);
                 }
                 populatePowerControls(proxyConf.switchNames); // Always update power controls
-                statusOk = true;
+                // Store actual serial port connection status and paused state from backend
+                serialPortConnected = settings.serial_port_connected === true;
+                reconnectPaused = settings.reconnect_paused === true;
+                statusOk = serialPortConnected;
             }
+
+            // Always update connection status on success
+            updateConnectionStatus(proxyConfForStatus, statusOk);
 
         } catch (error) {
             console.error('Error fetching new proxy settings, trying fallback:', error);
@@ -1286,7 +1300,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             // console.error(error);
         }
-        updateConnectionStatus(originalProxyConfig, statusOk);
+        // Use stored serialPortConnected state (updated by fetchProxyConfig) for accurate status
+        // Only show Connected if both API responded AND serial port is actually connected
+        updateConnectionStatus(originalProxyConfig, statusOk && serialPortConnected);
         fetchPowerStatus(); // Ensure switch states are updated periodically
     }
 
