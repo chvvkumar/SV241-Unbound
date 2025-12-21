@@ -52,6 +52,8 @@ On first startup, the proxy will display a **First-Run Wizard** that guides you 
 3.  If no firmware is detected, click **"Flash Firmware"** to open the integrated web flasher.
 4.  Select the correct COM port and follow the on-screen instructions.
 
+> **Warning:** Make sure you select the correct COM port! If you have other ESP32 devices connected, their firmware will be overwritten without further confirmation.
+
 **Alternative:** Use the standalone **[SV241-Unbound Web Flasher](https://diyastro.github.io/SV241-Unbound/)** directly.
 
 ### 3. Connecting from Astronomy Software

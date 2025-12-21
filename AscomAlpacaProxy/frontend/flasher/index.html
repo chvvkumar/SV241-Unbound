@@ -237,6 +237,11 @@
             </button>
         </div>
 
+        <div class="warning" style="background-color: rgba(255, 152, 0, 0.1); border-color: #ff9800; color: #ff9800;">
+            <strong>⚠️ Verify Port:</strong> Make absolutely sure you select the correct COM port!
+            If you have other ESP32 devices connected, their firmware will be overwritten without further confirmation.
+        </div>
+
         <p>Before flashing, you must release the serial port so the browser can access it:</p>
 
         <button id="release-btn" onclick="releaseSerialPort()">Release Serial Port</button>
