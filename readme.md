@@ -24,8 +24,19 @@ This project consists of two main components:
 *   Control for 5 DC outputs, 2 USB groups, and 1 adjustable voltage output (with 0-15V slider control).
 *   Advanced dew heater control:
     *   **Manual Mode:** Variable 0-100% PWM control.
-    *   **PID Mode:** Automatic temperature regulation.
-    *   **Ambient Tracking:** Sensorless power adjustment.
+    *   **PID Mode:** Automatic temperature regulation using a lens temperature sensor and configurable target temperature above dew point.
+    *   **Ambient Tracking:** Sensorless power adjustment based on ambient temperature and humidity.
+
+#### PID Mode - How It Works
+
+In **PID Mode**, the controller automatically adjusts heater power to maintain the lens temperature at a safe level above the dew point:
+
+*   **Lens Temp:** The current temperature of the lens, measured by an external sensor.
+*   **Target Temp / Minimum Temp:** The desired temperature offset above the ambient dew point. A typical value is 3-5°C.
+
+The controller calculates the dew point from ambient temperature and humidity, adds the target offset, and adjusts heater power to maintain that temperature.
+
+> **Important:** The lens temperature sensor (labeled **TEMP** on the SV241) must be positioned **under or adjacent to the dew heater strap**. This ensures the sensor measures the heated area and provides accurate feedback for the PID controller.
 *   On-board sensor suite for monitoring power, ambient temperature/humidity, and lens temperature. The firmware is resilient to sensor failures.
 *   Experimental automatic drying cycle for the SHT40 humidity sensor.
 *   Configuration persistence across reboots.
