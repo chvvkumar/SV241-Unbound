@@ -17,7 +17,7 @@ This is a replacement firmware for the **Svbony SV241 Pro**.
 
 This project consists of two main components:
 1.  **Custom Firmware:** A replacement firmware for the ESP32-based Svbony SV241 Pro controller. It unlocks advanced control over power outputs and dew heaters.
-2.  **ASCOM Alpaca Proxy:** A standalone application that runs on your computer. It connects to the controller via USB and exposes its functions as standard ASCOM devices, making it compatible with popular astronomy software like NINA, SGP, etc.
+2.  **ASCOM Alpaca Proxy:** A standalone application that runs on your computer. It connects to the controller via USB and exposes its functions as standard ASCOM devices. It should work with any ASCOM Alpaca compatible astronomy software (tested with [NINA](https://nighttime-imaging.eu/), validated with [Conform Universal](https://github.com/ASCOMInitiative/ConformU)). For software without native Alpaca support, the installer includes a helper script to register a classic ASCOM driver (see [Driver Installation](./AscomAlpacaProxy/readme.md#driver-installation)).
 
 ### Firmware Features
 *   Control for 5 DC outputs, 2 USB groups, and 1 adjustable voltage output (with 0-15V slider control).
