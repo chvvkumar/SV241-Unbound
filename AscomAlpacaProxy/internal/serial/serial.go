@@ -334,60 +334,93 @@ func FindPort() (string, error) {
 		if port.IsUSB {
 			logger.Info("Probing port: %s", port.Name)
 
-			// Use a channel-based timeout to prevent hanging on problematic ports
-			resultChan := make(chan bool, 1)
-			go func(portName string) {
-				mode := &serial.Mode{BaudRate: 115200}
-				p, err := serial.Open(portName, mode)
-				if err != nil {
-					logger.Warn("Could not open port %s to probe: %v", portName, err)
-					resultChan <- false
-					return
-				}
-
-				_, err = p.Write([]byte("{\"get\":\"sensors\"}\n"))
-				if err != nil {
-					logger.Debug("Port %s: Write failed: %v", portName, err)
-					p.Close()
-					resultChan <- false
-					return
-				}
-
-				p.SetReadTimeout(2 * time.Second)
-				reader := bufio.NewReader(p)
-				line, err := reader.ReadString('\n')
-				p.Close() // Close the port immediately after use
-				if err != nil {
-					logger.Debug("Port %s: Read failed: %v", portName, err)
-					resultChan <- false
-					return
-				}
-
-				var js json.RawMessage
-				if json.Unmarshal([]byte(line), &js) == nil {
-					logger.Info("Successfully probed port: %s", portName)
-					resultChan <- true
-					return
-				} else {
-					logger.Debug("Port %s: Response was not valid JSON: %s", portName, line)
-				}
-				resultChan <- false
-			}(port.Name)
-
-			// Wait for result with a 5-second timeout
-			select {
-			case success := <-resultChan:
-				if success {
-					return port.Name, nil
-				}
-			case <-time.After(5 * time.Second):
-				logger.Warn("Port %s: Probe timed out after 5 seconds. Skipping.", port.Name)
+			if probePortWithTimeout(port.Name, 4*time.Second) {
+				return port.Name, nil
 			}
 		} else {
 			logger.Debug("Skipping port %s: Not a USB port.", port.Name)
 		}
 	}
 	return "", errors.New("could not find SV241 device on any USB serial port")
+}
+
+// probePortWithTimeout probes a port with a hard timeout that guarantees cleanup.
+// Uses a goroutine for the actual probe, but closes the port if timeout occurs.
+func probePortWithTimeout(portName string, timeout time.Duration) bool {
+	resultChan := make(chan bool, 1)
+
+	// Shared variable for port handle - allows cleanup on timeout
+	var probePort serial.Port
+	var probeMutex sync.Mutex
+
+	go func() {
+		mode := &serial.Mode{BaudRate: 115200}
+		p, err := serial.Open(portName, mode)
+		if err != nil {
+			logger.Warn("Could not open port %s to probe: %v", portName, err)
+			resultChan <- false
+			return
+		}
+
+		// Store port handle for potential cleanup
+		probeMutex.Lock()
+		probePort = p
+		probeMutex.Unlock()
+
+		// Set read timeout
+		p.SetReadTimeout(2 * time.Second)
+
+		_, err = p.Write([]byte("{\"get\":\"sensors\"}\n"))
+		if err != nil {
+			logger.Debug("Port %s: Write failed: %v", portName, err)
+			p.Close()
+			resultChan <- false
+			return
+		}
+
+		reader := bufio.NewReader(p)
+		line, err := reader.ReadString('\n')
+		p.Close() // Close immediately after read
+
+		// Clear the shared handle since we closed it
+		probeMutex.Lock()
+		probePort = nil
+		probeMutex.Unlock()
+
+		if err != nil {
+			logger.Debug("Port %s: Read failed or timed out: %v", portName, err)
+			resultChan <- false
+			return
+		}
+
+		var js json.RawMessage
+		if json.Unmarshal([]byte(line), &js) == nil {
+			logger.Info("Successfully probed port: %s", portName)
+			resultChan <- true
+			return
+		}
+
+		logger.Debug("Port %s: Response was not valid JSON: %s", portName, line)
+		resultChan <- false
+	}()
+
+	// Wait for result with hard timeout
+	select {
+	case success := <-resultChan:
+		return success
+	case <-time.After(timeout):
+		logger.Warn("Port %s: Probe timed out after %v. Forcing cleanup.", portName, timeout)
+
+		// Force close the port if goroutine is still holding it
+		probeMutex.Lock()
+		if probePort != nil {
+			probePort.Close()
+			probePort = nil
+		}
+		probeMutex.Unlock()
+
+		return false
+	}
 }
 
 // Reconnect is a public wrapper for reconnecting, intended to be called from other packages.
