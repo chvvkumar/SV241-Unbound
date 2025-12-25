@@ -62,12 +62,16 @@ function goToFlasher() {
 }
 
 .update-banner a {
-    color: #ff9800;
+    color: #fff;
+    background: #ff9800;
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
     font-weight: 600;
     text-decoration: none;
 }
 
 .update-banner a:hover {
-    text-decoration: underline;
+    background: #e68900;
+    box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
 }
 </style>

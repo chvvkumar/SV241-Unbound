@@ -8,7 +8,7 @@ def extract_firmware_version(env):
     """Extract FIRMWARE_VERSION from config_manager.h and write to version.json"""
     project_dir = env.subst("$PROJECT_DIR")
     config_manager_path = os.path.join(project_dir, "src", "config_manager.h")
-    version_json_path = os.path.join(project_dir, "AscomAlpacaProxy", "frontend", "flasher", "firmware", "version.json")
+    version_json_path = os.path.join(project_dir, "AscomAlpacaProxy", "frontend-vue", "dist", "flasher", "firmware", "version.json")
     
     try:
         with open(config_manager_path, "r", encoding="utf-8") as f:
