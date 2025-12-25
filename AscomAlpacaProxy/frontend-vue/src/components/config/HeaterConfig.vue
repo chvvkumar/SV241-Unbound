@@ -199,46 +199,46 @@ async function save() {
           <!-- Mode 0: Manual -->
           <div v-if="heater.m == 0" class="mode-settings active">
               <label>Power (%)</label>
-              <input type="number" v-model.number="heater.mp" min="0" max="100" @input="onMetricChange">
+              <input type="number" v-model.number="heater.mp" min="0" max="100" @input="onChange">
           </div>
 
           <!-- Mode 1: PID -->
           <div v-if="heater.m == 1" class="mode-settings active">
               <label>Target Offset (°C)</label>
-              <input type="number" v-model.number="heater.to" step="0.1" @input="onMetricChange">
+              <input type="number" v-model.number="heater.to" step="0.1" @input="onChange">
               <div class="pid-grid">
-                  <label>Kp <input type="number" v-model.number="heater.kp" step="0.1" @input="onMetricChange"></label>
-                  <label>Ki <input type="number" v-model.number="heater.ki" step="0.1" @input="onMetricChange"></label>
-                  <label>Kd <input type="number" v-model.number="heater.kd" step="0.1" @input="onMetricChange"></label>
+                  <label>Kp <input type="number" v-model.number="heater.kp" step="0.1" @input="onChange"></label>
+                  <label>Ki <input type="number" v-model.number="heater.ki" step="0.1" @input="onChange"></label>
+                  <label>Kd <input type="number" v-model.number="heater.kd" step="0.1" @input="onChange"></label>
               </div>
           </div>
 
           <!-- Mode 2: Ambient -->
           <div v-if="heater.m == 2" class="mode-settings active">
                <div class="pid-grid">
-                  <label>Start Delta (°C) <input type="number" v-model.number="heater.sd" step="0.1" @input="onMetricChange"></label>
-                  <label>End Delta (°C) <input type="number" v-model.number="heater.ed" step="0.1" @input="onMetricChange"></label>
-                  <label>Max Power (%) <input type="number" v-model.number="heater.xp" min="0" max="100" @input="onMetricChange"></label>
+                  <label>Start Delta (°C) <input type="number" v-model.number="heater.sd" step="0.1" @input="onChange"></label>
+                  <label>End Delta (°C) <input type="number" v-model.number="heater.ed" step="0.1" @input="onChange"></label>
+                  <label>Max Power (%) <input type="number" v-model.number="heater.xp" min="0" max="100" @input="onChange"></label>
                </div>
           </div>
 
           <!-- Mode 3: Sync -->
           <div v-if="heater.m == 3" class="mode-settings active">
               <label>Sync Factor</label>
-              <input type="number" v-model.number="heater.psf" step="0.1" min="0" max="2.0" @input="onMetricChange">
+              <input type="number" v-model.number="heater.psf" step="0.1" min="0" max="2.0" @input="onChange">
               <!-- Auto-enable leader checkbox is in Proxy config, skip for now or fetch separately -->
           </div>
 
           <!-- Mode 4: Min Temp -->
           <div v-if="heater.m == 4" class="mode-settings active">
               <label>Min Temp (°C)</label>
-              <input type="number" v-model.number="heater.mt" step="0.1" @input="onMetricChange">
+              <input type="number" v-model.number="heater.mt" step="0.1" @input="onChange">
               <label>Target Offset (°C)</label>
-              <input type="number" v-model.number="heater.to" step="0.1" @input="onMetricChange">
+              <input type="number" v-model.number="heater.to" step="0.1" @input="onChange">
               <div class="pid-grid">
-                  <label>Kp <input type="number" v-model.number="heater.kp" step="0.1" @input="onMetricChange"></label>
-                  <label>Ki <input type="number" v-model.number="heater.ki" step="0.1" @input="onMetricChange"></label>
-                  <label>Kd <input type="number" v-model.number="heater.kd" step="0.1" @input="onMetricChange"></label>
+                  <label>Kp <input type="number" v-model.number="heater.kp" step="0.1" @input="onChange"></label>
+                  <label>Ki <input type="number" v-model.number="heater.ki" step="0.1" @input="onChange"></label>
+                  <label>Kd <input type="number" v-model.number="heater.kd" step="0.1" @input="onChange"></label>
               </div>
           </div>
 
