@@ -16,6 +16,7 @@ export const useDeviceStore = defineStore('device', () => {
     })
     const telemetryHistory = ref([]) // For charts
     const availableDates = ref([]) // For CSV history selection
+    const availableIps = ref([])
     const activeSwitches = ref({})
     const switchNames = ref({})
     const powerStatus = ref({})
@@ -193,6 +194,10 @@ export const useDeviceStore = defineStore('device', () => {
                 switchNames.value = proxyConf.switchNames;
             }
 
+            if (settings.available_ips) {
+                availableIps.value = settings.available_ips;
+            }
+
             isPaused.value = settings.reconnect_paused === true;
 
             if (proxyConf && proxyConf.serialPortName) {
@@ -301,6 +306,7 @@ export const useDeviceStore = defineStore('device', () => {
         proxyConfig,
         telemetryHistory,
         availableDates,
+        availableIps,
         fetchConfig,
         saveConfig,
         fetchProxySettings,

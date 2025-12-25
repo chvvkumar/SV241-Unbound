@@ -6,7 +6,7 @@ import { ref, watch, computed } from 'vue'
 
 const store = useDeviceStore()
 const modal = useModalStore()
-const { proxyConfig } = storeToRefs(store)
+const { proxyConfig, availableIps } = storeToRefs(store)
 
 const localConfig = ref({})
 const hasChanges = ref(false)
@@ -67,7 +67,9 @@ async function save() {
               </div>
               <div class="form-group">
                   <label>Listen Address</label>
-                  <input type="text" v-model="localConfig.listenAddress" @input="onChange" placeholder="127.0.0.1">
+                  <select v-model="localConfig.listenAddress" @change="onChange">
+                      <option v-for="ip in availableIps" :key="ip" :value="ip">{{ ip }}</option>
+                  </select>
               </div>
               <div class="form-group">
                   <label>Network Port</label>

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
 	"sv241pro-alpaca-proxy/internal/config"
 	"sv241pro-alpaca-proxy/internal/logger"
 	"sv241pro-alpaca-proxy/internal/serial"
@@ -112,7 +113,11 @@ func getAvailableIPs() ([]string, error) {
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				ips = append(ips, ipnet.IP.String())
+				ipStr := ipnet.IP.String()
+				// Filter out APIPA addresses (169.254.x.x)
+				if !strings.HasPrefix(ipStr, "169.254.") {
+					ips = append(ips, ipStr)
+				}
 			}
 		}
 	}
