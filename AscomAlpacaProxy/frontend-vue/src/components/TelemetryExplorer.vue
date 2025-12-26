@@ -256,6 +256,11 @@ const chartOptions = {
         mode: 'index',
         intersect: false,
     },
+    layout: {
+        padding: {
+            bottom: 25
+        }
+    },
     scales: {
         y: {
             beginAtZero: false, 
