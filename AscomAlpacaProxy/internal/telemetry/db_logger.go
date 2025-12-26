@@ -32,11 +32,11 @@ func Init() {
 		if err := database.PruneOldTelemetry(conf.HistoryRetentionNights); err != nil {
 			logger.Error("Failed to prune old telemetry: %v", err)
 		}
-	} else {
-		// Default retention of 30 days if not set or 0?
-		// Legacy code: PruneOldFiles(logsDir, config.Get().HistoryRetentionNights)
-		// If config is 0, maybe it means keep forever?
-		// Let's stick to config.
+	}
+
+	// Always checkpoint WAL at startup to consolidate data and keep file size small
+	if err := database.Checkpoint(); err != nil {
+		logger.Error("Failed to checkpoint WAL at startup: %v", err)
 	}
 
 	// Start the logging loop (unless disabled)
@@ -58,7 +58,38 @@ func loggingLoop() {
 
 	logger.Info("Database Telemetry Logging started. Interval: %v", interval)
 
+	// Calculate next cleanup time (next 12:00 PM)
+	now := time.Now()
+	nextPruneTime := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
+	if now.After(nextPruneTime) {
+		nextPruneTime = nextPruneTime.Add(24 * time.Hour)
+	}
+	logger.Info("Next database cleanup scheduled for: %v", nextPruneTime.Format(time.RFC1123))
+
 	for range ticker.C {
+		// Daily cleanup check
+		if time.Now().After(nextPruneTime) {
+			logger.Info("Running scheduled daily database cleanup...")
+			if conf.HistoryRetentionNights > 0 {
+				if err := database.PruneOldTelemetry(conf.HistoryRetentionNights); err != nil {
+					logger.Error("Failed to prune old telemetry: %v", err)
+				} else {
+					logger.Info("Daily database cleanup completed successfully.")
+				}
+			}
+
+			// Always checkpoint to keep WAL size under control
+			if err := database.Checkpoint(); err != nil {
+				logger.Error("Failed to perform daily WAL checkpoint: %v", err)
+			} else {
+				logger.Info("Daily WAL checkpoint completed.")
+			}
+
+			// Schedule next run for tomorrow 12:00 PM
+			nextPruneTime = nextPruneTime.Add(24 * time.Hour)
+			logger.Info("Next database cleanup scheduled for: %v", nextPruneTime.Format(time.RFC1123))
+		}
+
 		logTelemetry()
 	}
 }

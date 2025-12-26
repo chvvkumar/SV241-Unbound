@@ -63,6 +63,14 @@ func Close() {
 	}
 }
 
+// Checkpoint forces a WAL checkpoint and truncates the WAL file.
+func Checkpoint() error {
+	if _, err := db.Exec("PRAGMA wal_checkpoint(TRUNCATE);"); err != nil {
+		return fmt.Errorf("failed to checkpoint WAL: %w", err)
+	}
+	return nil
+}
+
 // TelemetryData mirrors the structure used in other parts of the app
 // We define it here or import it? Ideally we import from telemetry, but telemetry imports database, causing cycle.
 // So we define a struct here or verify if we can pass discrete values.
