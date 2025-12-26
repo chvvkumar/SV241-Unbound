@@ -358,12 +358,16 @@ const chartOptions = {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 2rem;
+    padding: 0.5rem 1rem;
     background: rgba(255,255,255,0.05);
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
+.explorer-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
 .close-btn {
-    background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer;
+    background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;
 }
 .explorer-body {
     flex: 1;
