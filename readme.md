@@ -18,8 +18,8 @@ This is a replacement firmware for the **Svbony SV241 Pro**.
 
 *   [Project Overview](#project-overview)
 *   [Quick Start Guide](#quick-start-guide)
-    *   [1. Flashing the Firmware](#1-flashing-the-firmware)
-    *   [2. Running the ASCOM Alpaca Proxy](#2-running-the-ascom-alpaca-proxy)
+    *   [1. Install the ASCOM Alpaca Proxy](#1-install-the-ascom-alpaca-proxy)
+    *   [2. Flashing the Firmware](#2-flashing-the-firmware)
     *   [3. Connecting from Astronomy Software](#3-connecting-from-astronomy-software)
 *   [The ASCOM Alpaca Proxy](#the-ascom-alpaca-proxy)
 *   [Advanced: Serial Command Interface](#advanced-serial-command-interface)
@@ -32,7 +32,7 @@ This project consists of two main components:
 2.  **ASCOM Alpaca Proxy:** A standalone application that runs on your computer. It connects to the controller via USB and exposes its functions as standard ASCOM devices. It should work with any ASCOM Alpaca compatible astronomy software (tested with [NINA](https://nighttime-imaging.eu/), validated with [Conform Universal](https://github.com/ASCOMInitiative/ConformU)). For software without native Alpaca support, the installer includes a helper script to register a classic ASCOM driver (see [Driver Installation](./AscomAlpacaProxy/readme.md#driver-installation)).
 
 ### Firmware Features
-*   Control for 5 DC outputs, 2 USB groups, and 1 adjustable voltage output (0-15V, powered by a [Southchip SC8903](https://www.lcsc.com/product-detail/C5125332.html) buck-boost converter).
+*   Control for 5 DC outputs, 2 USB groups, and 1 adjustable voltage output (0-15V, powered by a [Southchip SC8903](https://datasheet.lcsc.com/lcsc/2107141624_Southchip-Semicon-SC8903QDHR_C252424.pdf) buck-boost converter).
 *   Advanced dew heater control:
     *   **Manual Mode:** Variable 0-100% PWM control.
     *   **PID Mode:** Automatic temperature regulation using a lens temperature sensor and configurable target temperature above dew point.
