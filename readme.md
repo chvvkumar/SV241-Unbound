@@ -3,6 +3,17 @@
 This is a replacement firmware for the **Svbony SV241 Pro**.
 **DISCLAIMER:** This firmware is provided "as-is" without any warranty. Use it at your own risk. The author is not responsible for any damage to your device.
 
+---
+
+<p align="center">
+  <em>This is a hobby project. If you find it useful and would like to support a good cause, consider donating via <strong>betterplace.org</strong>—all donations go directly to <strong>Doctors Without Borders</strong>.</em><br><br>
+  <a href="https://www.betterplace.org/de/fundraising-events/55631-diyastro-for-doctors-without-borders">
+    <img src="https://img.shields.io/badge/Donate-Doctors%20Without%20Borders-red?style=for-the-badge&logo=heart" alt="Donate to Doctors Without Borders">
+  </a>
+</p>
+
+---
+
 ## Table of Contents
 
 *   [Project Overview](#project-overview)
