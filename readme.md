@@ -32,7 +32,7 @@ This project consists of two main components:
 2.  **ASCOM Alpaca Proxy:** A standalone application that runs on your computer. It connects to the controller via USB and exposes its functions as standard ASCOM devices. It should work with any ASCOM Alpaca compatible astronomy software (tested with [NINA](https://nighttime-imaging.eu/), validated with [Conform Universal](https://github.com/ASCOMInitiative/ConformU)). For software without native Alpaca support, the installer includes a helper script to register a classic ASCOM driver (see [Driver Installation](./AscomAlpacaProxy/readme.md#driver-installation)).
 
 ### Firmware Features
-*   Control for 5 DC outputs, 2 USB groups, and 1 adjustable voltage output (with 0-15V slider control).
+*   Control for 5 DC outputs, 2 USB groups, and 1 adjustable voltage output (0-15V, powered by a [Southchip SC8903](https://www.lcsc.com/product-detail/C5125332.html) buck-boost converter).
 *   Advanced dew heater control:
     *   **Manual Mode:** Variable 0-100% PWM control.
     *   **PID Mode:** Automatic temperature regulation using a lens temperature sensor and configurable target temperature above dew point.
