@@ -2,6 +2,7 @@ package alpaca
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"sv241pro-alpaca-proxy/internal/logger"
 	"sync/atomic"
@@ -104,6 +105,10 @@ func IntResponse(w http.ResponseWriter, r *http.Request, value int) {
 }
 
 func FloatResponse(w http.ResponseWriter, r *http.Request, value float64) {
+	// Round to 2 decimal places to avoid IEEE 754 floating-point precision issues
+	// (e.g., 3.4 showing as 3.4000000000000004)
+	value = math.Round(value*100) / 100
+
 	resp := ValueResponse{
 		Response: Response{
 			ClientTransactionID: atomic.LoadUint32(&ClientTransactionID),
