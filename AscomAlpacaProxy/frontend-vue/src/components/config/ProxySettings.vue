@@ -59,10 +59,14 @@ async function save() {
                          :disabled="localConfig.autoDetectPort"
                          :placeholder="localConfig.autoDetectPort ? 'Auto-detecting...' : 'e.g. COM3'">
               </div>
-              <div class="form-group checkbox-group">
+              <div class="form-group checkbox-row">
                   <label>
                       <input type="checkbox" v-model="localConfig.autoDetectPort" @change="onChange">
                       Auto-Detect Port
+                  </label>
+                  <label>
+                      <input type="checkbox" v-model="localConfig.enableNotifications" @change="onChange">
+                      Notifications
                   </label>
               </div>
               <div class="form-group">
@@ -206,6 +210,21 @@ async function save() {
 }
 
 .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-row {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 1.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.checkbox-row label {
     display: flex;
     align-items: center;
     gap: 0.5rem;

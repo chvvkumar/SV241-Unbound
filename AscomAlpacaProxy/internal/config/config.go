@@ -22,6 +22,7 @@ type ProxyConfig struct {
 	TelemetryInterval          int               `json:"telemetryInterval"`          // Seconds
 	EnableAlpacaVoltageControl bool              `json:"enableAlpacaVoltageControl"` // Allow voltage control via Alpaca
 	EnableMasterPower          bool              `json:"enableMasterPower"`          // Show Master Power switch
+	EnableNotifications        bool              `json:"enableNotifications"`        // Show Windows toast notifications
 	FirstRunComplete           bool              `json:"firstRunComplete"`           // Onboarding wizard completed
 }
 
@@ -144,8 +145,9 @@ func Load() error {
 					"pwm1": true,
 					"pwm2": true,
 				},
-				HistoryRetentionNights: 10, // Default to 10 nights
-				TelemetryInterval:      10, // Default to 10 seconds
+				HistoryRetentionNights: 10,   // Default to 10 nights
+				TelemetryInterval:      10,   // Default to 10 seconds
+				EnableNotifications:    true, // Default to notifications enabled
 			}
 			for _, internalName := range SwitchIDMap {
 				proxyConfig.SwitchNames[internalName] = internalName
