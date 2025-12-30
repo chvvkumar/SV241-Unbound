@@ -108,7 +108,7 @@ The top panel displays real-time sensor readings from the SV241 device:
 | **Lens Temp** | Objective/lens temperature from DS18B20 sensor (°C) |
 | **PWM 1/2** | Current dew heater power levels (%) |
 
-> **Tip:** Click on any sensor value to open an interactive chart showing historical data.
+> **Tip:** Use the chart button in the telemetry panel header to open the **Telemetry Explorer** for interactive historical charts and data export.
 
 ### Power Control Panel
 
