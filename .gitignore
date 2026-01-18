@@ -1,5 +1,6 @@
 .pio
 .vscode/
+media/
 AscomAlpacaProxy/resource.syso
 AscomAlpacaProxy/build
 AscomAlpacaProxy/install
