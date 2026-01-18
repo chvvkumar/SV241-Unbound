@@ -219,6 +219,20 @@ Export telemetry data for external analysis:
 *   **Headers:** CSV headers include custom names in the format `key (custom_name)` for easy identification.
 *   **Time Format:** Timestamps are exported in ISO 8601 format (RFC3339).
 
+### External API Access
+The telemetry system exposes a REST API that allows you to fetch historical data from any device in your network.
+
+**Endpoint:** `GET /api/v1/telemetry/history?start={timestamp}&end={timestamp}`
+
+**Features:**
+*   **Universal Access:** Fetch data from Excel, PowerBI, Python scripts, Home Assistant, or Grafana.
+*   **Network Configuration:** By default, the proxy listens on `127.0.0.1` (localhost). To access the API from other devices (e.g., a phone or laptop), you must change the `ListenAddress` in the proxy settings to `0.0.0.0` (see **Important Security Notice** above).
+
+**Example Scenarios:**
+*   **PowerBI / Excel:** Import live data using PowerQuery: `http://192.168.1.100:32241/api/v1/telemetry/download?date=2023-10-27`
+*   **Home Assistant:** Create REST sensors to poll the JSON history for custom dashboards.
+*   **Python:** Automate data analysis with simple HTTP requests.
+
 ### Configuration
 Telemetry settings are available in the **Proxy Settings** tab under "Logging & Telemetry":
 
