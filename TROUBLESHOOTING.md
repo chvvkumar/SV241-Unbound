@@ -45,6 +45,18 @@
 
 ---
 
+## ASCOM Client Issues
+
+### Adjustable Voltage / Number Input Issues (Decimal Separators)
+Some ASCOM clients (including test tools and custom scripts) may strip decimal separators or behave unexpectedly when sending floating-point values.
+
+*   **Symptom:** You input `0,5` V or `12,8` V but the device sets `5` V or `128` V.
+*   **Cause:** The client software filters out the decimal separator (comma or dot) before sending the command to the proxy.
+*   **Verification:** Set the proxy Log Level to `DEBUG`. Check the log for a line like: `[DEBUG] SetSwitchValue (AdjConv) - Received: '5', Normalized: '5'`.
+*   **Solution:** This is a client-side formatting issue. Check your client's region settings or input validation rules. The proxy natively supports both `.` (dot) and `,` (comma) separators, provided the client actually sends them.
+
+---
+
 ## Firmware Issues
 
 ### Web Flasher not working

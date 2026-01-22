@@ -506,6 +506,8 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 	var state bool
 	var err error
 	if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
+		// Normalize: allows usage of "12,5" instead of "12.5"
+		valueStr = strings.Replace(valueStr, ",", ".", -1)
 		value, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil {
 			ErrorResponse(w, r, http.StatusOK, 400, "Invalid Value parameter")
@@ -559,6 +561,7 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 
 		if isManual {
 			if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
+				valueStr = strings.Replace(valueStr, ",", ".", -1)
 				value, _ := strconv.ParseFloat(valueStr, 64)
 				command = fmt.Sprintf(`{"set":{"%s":%.0f}}`, shortKey, value)
 			} else {
@@ -575,6 +578,9 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 		if longKey == "adj_conv" && config.Get().EnableAlpacaVoltageControl {
 			if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
 				// If Value is provided, set specific voltage
+				originalStr := valueStr
+				valueStr = strings.Replace(valueStr, ",", ".", -1)
+				logger.Debug("SetSwitchValue (AdjConv) - Received: '%s', Normalized: '%s'", originalStr, valueStr)
 				value, _ := strconv.ParseFloat(valueStr, 64)
 				command = fmt.Sprintf(`{"set":{"%s":%.2f}}`, shortKey, value)
 				newVoltageTarget = value
