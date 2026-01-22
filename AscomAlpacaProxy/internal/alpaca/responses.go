@@ -78,7 +78,15 @@ func ErrorResponse(w http.ResponseWriter, r *http.Request, httpStatus int, errNu
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
-	logger.Error("Alpaca request failed with HTTP status %d, error %d: %s", httpStatus, errNum, errMsg)
+
+	// Filter "Not Implemented" errors (ASCOM 0x400 = 1024, 0x40C = 1036)
+	// These are normal during device discovery and should not be logged as ERROR.
+	if errNum == 0x400 || errNum == 0x40C {
+		logger.Debug("Alpaca request 'Not Implemented' (normal behavior) - Status %d, Error %d: %s", httpStatus, errNum, errMsg)
+	} else {
+		logger.Error("Alpaca request failed with HTTP status %d, error %d: %s", httpStatus, errNum, errMsg)
+	}
+
 	json.NewEncoder(w).Encode(resp)
 }
 
