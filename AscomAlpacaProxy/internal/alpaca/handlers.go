@@ -183,6 +183,15 @@ func (a *API) HandleSwitchGetSwitchName(w http.ResponseWriter, r *http.Request) 
 		case config.SensorPowerKey:
 			StringResponse(w, r, "Total Power")
 			return
+		case config.SensorLensTempKey:
+			StringResponse(w, r, "Lens Temperature")
+			return
+		case config.SensorPWM1Key:
+			StringResponse(w, r, "Dew Heater 1")
+			return
+		case config.SensorPWM2Key:
+			StringResponse(w, r, "Dew Heater 2")
+			return
 		}
 
 		customName := config.Get().SwitchNames[internalName]
@@ -208,6 +217,15 @@ func (a *API) HandleSwitchGetSwitchDescription(w http.ResponseWriter, r *http.Re
 			return
 		case config.SensorPowerKey:
 			StringResponse(w, r, "Total power consumption in Watts (W)")
+			return
+		case config.SensorLensTempKey:
+			StringResponse(w, r, "Lens/Objective temperature in °C")
+			return
+		case config.SensorPWM1Key:
+			StringResponse(w, r, "Dew Heater 1 power output in %")
+			return
+		case config.SensorPWM2Key:
+			StringResponse(w, r, "Dew Heater 2 power output in %")
 			return
 		}
 
@@ -293,8 +311,29 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 
 	key := config.SwitchIDMap[id]
 
-	// Handle sensor switches - read from Conditions, not Status
+	// Handle sensor switches
 	if config.IsSensorSwitch(key) {
+		// PWM Sensors are special: they live in Status cache, not Conditions
+		if key == config.SensorPWM1Key || key == config.SensorPWM2Key {
+			serial.Status.RLock()
+			defer serial.Status.RUnlock()
+
+			shortKey := "pwm1"
+			if key == config.SensorPWM2Key {
+				shortKey = "pwm2"
+			}
+
+			if val, ok := serial.Status.Data[shortKey]; ok {
+				if floatVal, isFloat := val.(float64); isFloat {
+					FloatResponse(w, r, floatVal)
+					return
+				}
+			}
+			FloatResponse(w, r, 0.0)
+			return
+		}
+
+		// All other sensors (Voltage, Current, Power, LensTemp) live in Conditions cache
 		serial.Conditions.RLock()
 		defer serial.Conditions.RUnlock()
 
@@ -306,6 +345,21 @@ func (a *API) HandleSwitchGetSwitchValue(w http.ResponseWriter, r *http.Request)
 			dataKey = "i"
 		case config.SensorPowerKey:
 			dataKey = "p"
+		case config.SensorLensTempKey:
+			dataKey = "t_lens"
+		}
+
+		// Handle Lens Temp specifically to inject fallback check
+		if key == config.SensorLensTempKey {
+			if val, found := serial.Conditions.Data["t_lens"]; found && val != nil {
+				if floatVal, isFloat := val.(float64); isFloat {
+					FloatResponse(w, r, floatVal)
+					return
+				}
+			}
+			// Sensor Missing/Error
+			FloatResponse(w, r, -273.15)
+			return
 		}
 
 		if val, found := serial.Conditions.Data[dataKey]; found && val != nil {
@@ -647,6 +701,12 @@ func (a *API) HandleSwitchMaxSwitchValue(w http.ResponseWriter, r *http.Request)
 		case config.SensorPowerKey:
 			FloatResponse(w, r, 150.0) // Max power in W
 			return
+		case config.SensorLensTempKey:
+			FloatResponse(w, r, 100.0) // Max temp
+			return
+		case config.SensorPWM1Key, config.SensorPWM2Key:
+			FloatResponse(w, r, 100.0) // Max PWM %
+			return
 		}
 
 		if key == "adj_conv" && config.Get().EnableAlpacaVoltageControl {
@@ -685,7 +745,12 @@ func (a *API) HandleSwitchMaxSwitchValue(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *API) HandleSwitchMinSwitchValue(w http.ResponseWriter, r *http.Request) {
-	if _, ok := ParseSwitchID(w, r); ok {
+	if id, ok := ParseSwitchID(w, r); ok {
+		key := config.SwitchIDMap[id]
+		if key == config.SensorLensTempKey {
+			FloatResponse(w, r, -273.15) // Absolute zero as min/error
+			return
+		}
 		FloatResponse(w, r, 0.0)
 	}
 }

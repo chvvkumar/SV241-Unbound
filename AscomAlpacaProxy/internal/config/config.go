@@ -49,15 +49,20 @@ type PowerStartupStates struct {
 var SwitchMapMutex sync.RWMutex
 
 // Sensor switch keys - these are read-only sensors at fixed IDs 0, 1, 2
+// Sensor switch keys - these are read-only sensors at fixed IDs 0, 1, 2
 const (
-	SensorVoltageKey = "sensor_voltage"
-	SensorCurrentKey = "sensor_current"
-	SensorPowerKey   = "sensor_power"
+	SensorVoltageKey  = "sensor_voltage"
+	SensorCurrentKey  = "sensor_current"
+	SensorPowerKey    = "sensor_power"
+	SensorLensTempKey = "sensor_lens_temp"
+	SensorPWM1Key     = "sensor_pwm1"
+	SensorPWM2Key     = "sensor_pwm2"
 )
 
 // IsSensorSwitch returns true if the switch key is a read-only sensor
 func IsSensorSwitch(key string) bool {
-	return key == SensorVoltageKey || key == SensorCurrentKey || key == SensorPowerKey
+	return key == SensorVoltageKey || key == SensorCurrentKey || key == SensorPowerKey ||
+		key == SensorLensTempKey || key == SensorPWM1Key || key == SensorPWM2Key
 }
 
 var (

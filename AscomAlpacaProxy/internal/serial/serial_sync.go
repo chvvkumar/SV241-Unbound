@@ -42,7 +42,7 @@ func SyncFirmwareConfig() {
 	// It's used for reverse lookup. If the ID doesn't exist, it won't be used.
 	// But let's keep it safe.
 
-	// 0. Sensors (Always at fixed IDs 0, 1, 2)
+	// 0. Fixed Sensors (Always at IDs 0, 1, 2)
 	newIDMap[0] = config.SensorVoltageKey
 	newIDMap[1] = config.SensorCurrentKey
 	newIDMap[2] = config.SensorPowerKey
@@ -50,12 +50,50 @@ func SyncFirmwareConfig() {
 	newShortKeyByID[1] = config.SensorCurrentKey
 	newShortKeyByID[2] = config.SensorPowerKey
 
-	// 1. Standard Switches (Starting at ID 3)
+	currentID := 3 // Start counter after fixed sensors
+
+	// 0a. Dynamic Sensors (Lens Temp, PWM1, PWM2)
+	// Check modes for Heater 1 and Heater 2
+	// Modes: 0=Manual, 1=PID(Lens), 2=AmbTracking, 3=PID-Sync, 4=MinTemp, 5=Disabled
+	h1Mode := 0
+	h2Mode := 0
+	if len(fwConfig.DH) >= 1 {
+		h1Mode = fwConfig.DH[0].M
+	}
+	if len(fwConfig.DH) >= 2 {
+		h2Mode = fwConfig.DH[1].M
+	}
+
+	// Lens Temperature (ID dynamic)
+	// Suggest showing if at least one heater needs it (Mode 1 or 4)
+	if h1Mode == 1 || h1Mode == 4 || h2Mode == 1 || h2Mode == 4 {
+		newIDMap[currentID] = config.SensorLensTempKey
+		newShortKeyByID[currentID] = config.SensorLensTempKey
+		currentID++
+	}
+
+	// PWM1 Level (ID dynamic)
+	// Show unless disabled
+	if h1Mode != 5 {
+		newIDMap[currentID] = config.SensorPWM1Key
+		newShortKeyByID[currentID] = config.SensorPWM1Key
+		currentID++
+	}
+
+	// PWM2 Level (ID dynamic)
+	// Show unless disabled
+	if h2Mode != 5 {
+		newIDMap[currentID] = config.SensorPWM2Key
+		newShortKeyByID[currentID] = config.SensorPWM2Key
+		currentID++
+	}
+
+	// 1. Standard Switches (Starting after sensors)
 	// These are always present (unless we want to hide unused DC ports later, but for now they are static)
 	standardSwitches := []string{"dc1", "dc2", "dc3", "dc4", "dc5", "usbc12", "usb345", "adj_conv"}
 	standardShortKeys := []string{"d1", "d2", "d3", "d4", "d5", "u12", "u34", "adj"}
 
-	currentID := 3 // Start after sensors
+	// currentID continues incrementing...
 
 	for i, name := range standardSwitches {
 		shortKey := standardShortKeys[i]
