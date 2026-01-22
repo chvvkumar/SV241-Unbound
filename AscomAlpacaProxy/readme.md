@@ -125,7 +125,7 @@ The collapsible "Configuration & Settings" section contains five tabs:
 Configure power switch behavior:
 *   **State (Startup):** Set each switch to On, Off, or Disabled at device boot.
 *   **Custom Name:** Assign user-friendly names that appear in ASCOM clients.
-*   **Voltage:** Set the adjustable converter output voltage (5-15V).
+*   **Voltage:** Set the adjustable converter output voltage (1-15V).
 
 > [!IMPORTANT]
 > **ASCOM Client Reconnection Required:** When you enable or disable switches, the ASCOM switch IDs change dynamically. Your astronomy software (NINA, SGP, etc.) must **disconnect and reconnect** to the Switch device to see the updated switch list.
