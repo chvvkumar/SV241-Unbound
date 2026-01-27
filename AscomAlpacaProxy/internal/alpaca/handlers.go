@@ -184,7 +184,11 @@ func (a *API) HandleSwitchGetSwitchName(w http.ResponseWriter, r *http.Request) 
 			StringResponse(w, r, "Total Power")
 			return
 		case config.SensorLensTempKey:
-			StringResponse(w, r, "Lens Temperature")
+			if name := config.Get().LensTempName; name != "" {
+				StringResponse(w, r, name)
+			} else {
+				StringResponse(w, r, "Lens Temperature")
+			}
 			return
 		case config.SensorPWM1Key:
 			if name := config.Get().SwitchNames["pwm1"]; name != "" {

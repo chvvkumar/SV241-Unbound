@@ -77,6 +77,8 @@ func HandlePostSettings(w http.ResponseWriter, r *http.Request) {
 	conf.EnableAlpacaVoltageControl = newConfig.EnableAlpacaVoltageControl
 	conf.EnableMasterPower = newConfig.EnableMasterPower
 	conf.EnableNotifications = newConfig.EnableNotifications
+	conf.AlwaysShowLensTemp = newConfig.AlwaysShowLensTemp
+	conf.LensTempName = newConfig.LensTempName
 	conf.FirstRunComplete = newConfig.FirstRunComplete
 
 	// Apply log level immediately

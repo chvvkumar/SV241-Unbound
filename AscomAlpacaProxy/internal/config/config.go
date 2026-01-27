@@ -23,6 +23,8 @@ type ProxyConfig struct {
 	EnableAlpacaVoltageControl bool              `json:"enableAlpacaVoltageControl"` // Allow voltage control via Alpaca
 	EnableMasterPower          bool              `json:"enableMasterPower"`          // Show Master Power switch
 	EnableNotifications        bool              `json:"enableNotifications"`        // Show Windows toast notifications
+	AlwaysShowLensTemp         bool              `json:"alwaysShowLensTemp"`         // Always expose Lens Temp switch regardless of PID mode
+	LensTempName               string            `json:"lensTempName"`               // Custom name for Lens Temp sensor check
 	FirstRunComplete           bool              `json:"firstRunComplete"`           // Onboarding wizard completed
 }
 

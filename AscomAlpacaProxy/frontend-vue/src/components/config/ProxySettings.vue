@@ -128,7 +128,28 @@ async function save() {
               
               <hr class="divider">
               
-              <div class="master-power-section">
+               <div class="master-power-section">
+                  <div class="master-power-row">
+                      <div class="checkbox-with-hint">
+                           <label class="checkbox-label">
+                               <input type="checkbox" v-model="localConfig.alwaysShowLensTemp" @change="onChange">
+                               Always expose 'Lens Temperature'
+                           </label>
+                           <small class="hint">Always show sensor reading, even if PID/MinTemp is disabled.</small>
+                      </div>
+                      <div class="form-group">
+                          <label>Custom Lens Temperature Sensor Name</label>
+                          <input type="text" 
+                                 v-model="localConfig.lensTempName" 
+                                 @input="onChange"
+                                 placeholder="Lens Temperature">
+                      </div>
+                  </div>
+              </div>
+
+               <hr class="divider">
+               
+               <div class="master-power-section">
                   <div class="master-power-row">
                       <div class="form-group">
                           <label>Master Power Switch</label>
