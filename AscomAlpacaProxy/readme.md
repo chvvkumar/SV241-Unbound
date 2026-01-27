@@ -174,7 +174,7 @@ Maintenance and backup functions:
 Configure the proxy application itself:
 *   **Connection:** Serial port settings, auto-detection toggle.
 *   **Network:** Listen address, port, and log level.
-*   **ASCOM Features:** Enable/disable voltage slider control and the virtual Master Power switch.
+*   **ASCOM Features:** Enable/disable voltage slider control, the virtual Master Power switch, and persistent exposure of the Lens Temperature sensor (even in manual mode).
 *   **Telemetry:** Configure history retention period.
 
 > [!IMPORTANT]
@@ -535,7 +535,9 @@ Here is an example of the `proxy_config.json` file structure:
   "heaterAutoEnableLeader": {
     "pwm1": true,
     "pwm2": true
-  }
+  },
+  "alwaysShowLensTemp": true,
+  "lensTempName": "Box Ambient Temp"
 }
 ```
 
@@ -556,6 +558,8 @@ Here is an example of the `proxy_config.json` file structure:
 *   `enableMasterPower` (boolean): When `true`, a "Master Power" switch is exposed via ASCOM that controls all outputs simultaneously. Default is `false`.
 *   `switchNames` (object): A map that allows you to assign custom, user-friendly names to the internal switch identifiers. The `key` is the internal name (e.g., `"dc1"`) and the `value` is the custom name you want to see in ASCOM clients and the web interface.
 *   `heaterAutoEnableLeader` (object): Controls automatic leader activation for PID-Sync mode. When a follower heater (in mode 3) is enabled, the proxy can automatically enable its leader heater. Keys are `"pwm1"` and `"pwm2"`, values are `true`/`false`.
+*   `alwaysShowLensTemp` (boolean): When `true`, the "Lens Temperature" sensor switch is always exposed to ASCOM, even if the heater modes that require it (PID/MinTemp) are disabled. Handy for monitoring the sensor value (reading) in Manual Mode. Default is `false`.
+*   `lensTempName` (string): Allows you to override the default name "Lens Temperature" with a custom name (e.g., "Ambient Box Temp"). If empty, the default name is used.
 
 
 ### Log Level Configuration
