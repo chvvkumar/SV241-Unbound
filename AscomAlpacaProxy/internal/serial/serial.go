@@ -206,6 +206,15 @@ func ProcessCommands() {
 
 		trimmedResponse := strings.TrimSpace(response)
 		logger.Debug("Received response from device: %s", trimmedResponse)
+
+		// Instant Cache Update (Turbo): Sniff the response for status or sensor data.
+		// If found, update the global cache immediately so NINA sees the change without waiting for the poller.
+		if strings.Contains(trimmedResponse, `"status":`) {
+			updateStatusCacheFromJSON(trimmedResponse)
+		} else if strings.Contains(trimmedResponse, `"sht_temperature":`) {
+			updateConditionsCacheFromJSON(trimmedResponse)
+		}
+
 		cmd.Response <- trimmedResponse
 	}
 }
@@ -542,55 +551,62 @@ func performCacheUpdate() {
 	logger.Debug("Performing on-demand cache update.")
 	statusJSON, err := SendCommand(`{"get":"status"}`, false, 0)
 	if err == nil {
-		var rootData map[string]interface{}
-		// Unmarshal into generic map because we have mixed types ("status" object, "dm" array)
-		if json.Unmarshal([]byte(statusJSON), &rootData) == nil {
-			logger.Debug("Successfully unmarshaled status cache data.")
-
-			// Extract "status" block
-			if statusMap, ok := rootData["status"].(map[string]interface{}); ok {
-				Status.Lock()
-
-				// Inject "dm" (Dew Mode) array into the status map so handlers can find it easily
-				if dmVal, found := rootData["dm"]; found {
-					statusMap["dm"] = dmVal
-				}
-
-				Status.Data = statusMap
-
-				// Sync ActiveVoltageTarget from firmware report if available
-				if adjVal, ok := Status.Data["adj"]; ok {
-					if adjFloat, ok := adjVal.(float64); ok && adjFloat > 0 {
-						VoltageMutex.Lock()
-						ActiveVoltageTarget = adjFloat
-						VoltageMutex.Unlock()
-					}
-				}
-				Status.Unlock()
-			} else {
-				logger.Warn("Status JSON missing 'status' object")
-			}
-		} else {
-			logger.Warn("Failed to unmarshal status JSON from device. Raw data: %s", statusJSON)
-		}
+		updateStatusCacheFromJSON(statusJSON)
 	} else {
 		logger.Warn("Failed to get status for cache update: %v", err)
 	}
 
 	conditionsJSON, err := SendCommand(`{"get":"sensors"}`, false, 0)
 	if err == nil {
-		var conditionsData map[string]interface{}
-		if err := json.Unmarshal([]byte(conditionsJSON), &conditionsData); err == nil {
-			Conditions.Lock()
-			Conditions.Data = conditionsData
-			logMemoryStatus(conditionsData)
-			Conditions.Unlock()
-			logger.Debug("Successfully unmarshaled conditions cache data.")
-		} else {
-			logger.Warn("Failed to unmarshal conditions JSON from device. Raw data: %s", conditionsJSON)
-		}
+		updateConditionsCacheFromJSON(conditionsJSON)
 	} else {
 		logger.Warn("Failed to get conditions for cache update: %v", err)
+	}
+}
+
+func updateStatusCacheFromJSON(statusJSON string) {
+	var rootData map[string]interface{}
+	// Unmarshal into generic map because we have mixed types ("status" object, "dm" array)
+	if json.Unmarshal([]byte(statusJSON), &rootData) == nil {
+		// Extract "status" block
+		if statusMap, ok := rootData["status"].(map[string]interface{}); ok {
+			Status.Lock()
+			defer Status.Unlock()
+
+			// Inject "dm" (Dew Mode) array into the status map so handlers can find it easily
+			if dmVal, found := rootData["dm"]; found {
+				statusMap["dm"] = dmVal
+			}
+
+			Status.Data = statusMap
+			logger.Debug("Successfully updated status cache.")
+
+			// Sync ActiveVoltageTarget from firmware report if available
+			if adjVal, ok := Status.Data["adj"]; ok {
+				if adjFloat, ok := adjVal.(float64); ok && adjFloat > 0 {
+					VoltageMutex.Lock()
+					ActiveVoltageTarget = adjFloat
+					VoltageMutex.Unlock()
+				}
+			}
+		} else {
+			logger.Warn("Status JSON missing 'status' object")
+		}
+	} else {
+		logger.Warn("Failed to unmarshal status JSON from device. Raw data: %s", statusJSON)
+	}
+}
+
+func updateConditionsCacheFromJSON(conditionsJSON string) {
+	var conditionsData map[string]interface{}
+	if err := json.Unmarshal([]byte(conditionsJSON), &conditionsData); err == nil {
+		Conditions.Lock()
+		defer Conditions.Unlock()
+		Conditions.Data = conditionsData
+		logMemoryStatus(conditionsData)
+		logger.Debug("Successfully updated conditions cache.")
+	} else {
+		logger.Warn("Failed to unmarshal conditions JSON from device. Raw data: %s", conditionsJSON)
 	}
 }
 
