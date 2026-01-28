@@ -121,7 +121,7 @@ async function save() {
               <div class="checkbox-with-hint">
                    <label class="checkbox-label">
                        <input type="checkbox" v-model="localConfig.enableAlpacaVoltageControl" @change="onChange">
-                       Enable Alpaca Voltage Control
+                       Enable Variable Voltage Control (Alpaca & WebUI)
                    </label>
                    <small class="hint">Allow setting adjustable voltage via ASCOM Switch interface.</small>
               </div>

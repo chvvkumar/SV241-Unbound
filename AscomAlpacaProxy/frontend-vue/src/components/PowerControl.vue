@@ -106,31 +106,67 @@ onUnmounted(() => {
 
 watch(visibleSwitches, () => nextTick(checkTruncation), { deep: true });
 
-// --- Manual PWM Slider Logic ---
-const popoverOpen = ref(null); // 'pwm1' or 'pwm2' or null
-const sliderValue = ref(0); // Local value for smooth dragging
+// --- Manual Control Logic (PWM & Voltage) ---
+const popoverOpen = ref(null); // 'pwm1' or 'pwm2' or 'adj_conv'
+const sliderValue = ref(0); // Local value
 
-function isManualPwm(key) {
-    if (!powerStatus.value || !powerStatus.value.dm) return false;
-    if (key === 'pwm1') return powerStatus.value.dm[0] === 0;
-    if (key === 'pwm2') return powerStatus.value.dm[1] === 0;
+function isVariableControl(s) {
+    // 1. Manual PWM
+    if (s.key === 'pwm1' && powerStatus.value.dm && powerStatus.value.dm[0] === 0) return true;
+    if (s.key === 'pwm2' && powerStatus.value.dm && powerStatus.value.dm[1] === 0) return true;
+    
+    // 2. Variable Voltage (if enabled)
+    if (s.key === 'adj_conv' && proxyConfig.value.enableAlpacaVoltageControl) return true;
+    
     return false;
 }
 
+function getControlParams(key) {
+    if (key === 'adj_conv') {
+        return { min: 0, max: 15.0, step: 0.1, unit: 'V' };
+    }
+    // Default PWM
+    return { min: 0, max: 100, step: 1, unit: '%' };
+}
+
+function getDisplayValue(key) {
+    const val = getPwmValue(key);
+    const params = getControlParams(key);
+    // If unit is V, force 1 decimal
+    if (params.unit === 'V') return val.toFixed(1) + params.unit;
+    return val + params.unit;
+}
+
 function getPwmValue(key) {
-    // If popover is open, ALWAYS return local value
     if (popoverOpen.value === key) return sliderValue.value;
     
+    // Map long key to short key (e.g. 'adj_conv' -> 'adj')
+    const lookupKey = switchMapping[key] || key;
+    
+    // special handling for 'adj': it resides in powerStatus (target value), not liveStatus
+    if (lookupKey === 'adj') {
+        if (!powerStatus.value) return 0;
+        return powerStatus.value[lookupKey] || 0;
+    }
+    
     if (!liveStatus.value) return 0;
-    return liveStatus.value[key] || 0;
+    return liveStatus.value[lookupKey] || 0;
 }
 
 function togglePopover(key, event) {
     if (popoverOpen.value === key) {
         closePopover();
     } else {
-        // Sync local value from store BEFORE opening
-        sliderValue.value = liveStatus.value[key] || 0;
+        const lookupKey = switchMapping[key] || key;
+        
+        let initialVal = 0;
+        if (lookupKey === 'adj') {
+             initialVal = powerStatus.value ? (powerStatus.value[lookupKey] || 0) : 0;
+        } else {
+             initialVal = liveStatus.value ? (liveStatus.value[lookupKey] || 0) : 0;
+        }
+        
+        sliderValue.value = initialVal;
         popoverOpen.value = key;
     }
     event.stopPropagation();
@@ -141,8 +177,7 @@ function closePopover() {
 }
 
 function onSliderInput(event) {
-    // Purely local update. No API calls here.
-    sliderValue.value = parseInt(event.target.value);
+    sliderValue.value = parseFloat(event.target.value);
 }
 
 function commitPwmValue(id) {
@@ -185,13 +220,13 @@ function handleClickOutside(event) {
 
               <!-- Wrapper to ensure stable layout on right side -->
               <div class="control-wrapper">
-                  <!-- Manual PWM Control (Badge + Popover) -->
-                  <div v-if="isManualPwm(s.key)" class="pwm-manual-container">
+                  <!-- Manual/Variable Control (Badge + Popover) -->
+                  <div v-if="isVariableControl(s)" class="pwm-manual-container">
                       <div class="pwm-badge" 
                            :class="{ 'is-off': !s.isOn }"
                            @click="togglePopover(s.key, $event)" 
-                           title="Adjust Manual Power">
-                          {{ s.isOn ? getPwmValue(s.key) + '%' : 'OFF' }}
+                           title="Adjust Value">
+                          {{ s.isOn ? getDisplayValue(s.key) : 'OFF' }}
                       </div>
                       
                       <div v-if="popoverOpen === s.key" 
@@ -199,10 +234,13 @@ function handleClickOutside(event) {
                            @click.stop>
                           <div class="popover-header">
                               <span>Power</span>
-                              <span class="value">{{ sliderValue }}%</span>
+                              <span class="value">{{ getDisplayValue(s.key) }}</span>
                           </div>
                           <div class="slider-wrapper">
-                              <input type="range" min="0" max="100" step="1"
+                              <input type="range" 
+                                     :min="getControlParams(s.key).min" 
+                                     :max="getControlParams(s.key).max" 
+                                     :step="getControlParams(s.key).step"
                                      :value="sliderValue" 
                                      @input="onSliderInput"
                                      class="pwm-slider">
