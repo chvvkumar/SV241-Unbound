@@ -542,8 +542,9 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 	sendManualPWMCommand := false
 
 	if heaterIdx >= 0 {
+
 		// Check Mode from Status Cache
-		isManual := false
+		isAuto := false
 		serial.Status.RLock()
 		dmVal, found := serial.Status.Data["dm"]
 		serial.Status.RUnlock()
@@ -551,13 +552,24 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 		if found {
 			if dmArray, ok := dmVal.([]interface{}); ok && heaterIdx < len(dmArray) {
 				modeFloat, isFloat := dmArray[heaterIdx].(float64)
-				if isFloat && int(modeFloat) == 0 {
-					isManual = true
+				if isFloat {
+					if int(modeFloat) != 0 {
+						isAuto = true
+					}
 				}
 			}
 		}
 
-		if isManual {
+		// Use Manual PWM Command Logic if:
+		// 1. Explicit Value provided (User wants to set a specific power).
+		// 2. State Toggle AND we are NOT in Auto Mode.
+		//    - If isManual=true: Restore saved value.
+		//    - If is(Auto/Manual)=unknown (Cache Miss): Default to Restore logic (Manual) to avoid "0%" glitch.
+		//    - If isAuto=true: Do NOT use this block, fall through to standard "true" command to resume Auto.
+		forceManualValue, _ := GetFormValueIgnoreCase(r, "Value")
+		useManualLogic := (heaterIdx >= 0) && (forceManualValue != "" || !isAuto)
+
+		if useManualLogic {
 			if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
 				valueStr = strings.Replace(valueStr, ",", ".", -1)
 				value, _ := strconv.ParseFloat(valueStr, 64)
@@ -565,7 +577,7 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 			} else {
 				// Restore-on-Toggle Logic:
 				if state {
-					// Turning ON (state=true) in Manual Mode
+					// Turning ON (state=true) in Manual (or Unknown) Mode
 					// 1. Try to restore from Proxy's local persistent storage (best for user preference)
 					conf := config.Get()
 					config.SwitchMapMutex.RLock()
@@ -580,11 +592,11 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 					// 3. Apply
 					if savedVal > 0 {
 						command = fmt.Sprintf(`{"set":{"%s":%.0f}}`, shortKey, savedVal)
-						logger.Info("Toggle ON (Manual): Restoring saved power %.0f%% for %s", savedVal, shortKey)
+						logger.Info("Toggle ON (Manual/Recovery): Restoring saved power %.0f%% for %s", savedVal, shortKey)
 					} else {
 						// Fallback: Enable with 0 or min (sending true might result in 0 anyway)
 						command = fmt.Sprintf(`{"set":{"%s":%t}}`, shortKey, state) // Logic "true"
-						logger.Warn("Toggle ON (Manual): No saved power found, sending simple enable for %s", shortKey)
+						logger.Warn("Toggle ON (Manual/Recovery): No saved power found, sending simple enable for %s", shortKey)
 					}
 				} else {
 					// Turning OFF
