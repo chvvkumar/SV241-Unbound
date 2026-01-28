@@ -120,6 +120,23 @@ export const useDeviceStore = defineStore('device', () => {
         }
     }
 
+    async function setSwitchValue(id, value) {
+        const formData = new URLSearchParams();
+        formData.append('Id', id);
+        formData.append('Value', value); // Send 'Value' for explicit PWM level
+        try {
+            await fetch('/api/v1/switch/0/setswitchvalue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+            // Optimistic update - actually we rely on polling, but maybe fetch sooner
+            setTimeout(fetchPowerStatus, 200);
+        } catch (error) {
+            console.error(`Error setting switch value ${id}:`, error);
+        }
+    }
+
     async function setAllPower(state) {
         try {
             await fetch('/api/v1/power/all', {
@@ -312,6 +329,7 @@ export const useDeviceStore = defineStore('device', () => {
         fetchProxySettings,
         saveProxyConfig,
         setSwitch,
+        setSwitchValue,
         setAllPower,
         startPolling: () => {
             startPolling();

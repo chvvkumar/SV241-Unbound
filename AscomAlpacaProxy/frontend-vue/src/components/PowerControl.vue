@@ -4,13 +4,11 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 
 const store = useDeviceStore()
-const { activeSwitches, switchNames, powerStatus, config, proxyConfig } = storeToRefs(store)
+const { activeSwitches, switchNames, powerStatus, config, proxyConfig, liveStatus } = storeToRefs(store)
 
 const masterPowerState = computed({
     get: () => {
-        // If all visible switches are on, Master is on. Or check internal logic?
-        // App.js logic: checked = allOn.
-        // We iterate visible switches.
+        // If all visible switches are on, Master is on.
         if (Object.keys(powerStatus.value).length === 0) return false;
         return visibleSwitches.value.every(s => isSwitchOn(s.key));
     },
@@ -26,7 +24,6 @@ const switchMapping = {
 
 function isSwitchOn(key) {
     const val = powerStatus.value[key];
-    // Check if value is "truthy" (1 or boolean true or > 0 for voltage)
     return (typeof val === 'boolean' && val) || (typeof val === 'number' && val > 0);
 }
 
@@ -99,13 +96,73 @@ function isTruncated(index) {
 onMounted(() => {
     nextTick(checkTruncation);
     window.addEventListener('resize', checkTruncation);
+    document.addEventListener('click', handleClickOutside);
 });
 
 onUnmounted(() => {
     window.removeEventListener('resize', checkTruncation);
+    document.removeEventListener('click', handleClickOutside);
 });
 
 watch(visibleSwitches, () => nextTick(checkTruncation), { deep: true });
+
+// --- Manual PWM Slider Logic ---
+const popoverOpen = ref(null); // 'pwm1' or 'pwm2' or null
+const sliderValue = ref(0); // Local value for smooth dragging
+
+function isManualPwm(key) {
+    if (!powerStatus.value || !powerStatus.value.dm) return false;
+    if (key === 'pwm1') return powerStatus.value.dm[0] === 0;
+    if (key === 'pwm2') return powerStatus.value.dm[1] === 0;
+    return false;
+}
+
+function getPwmValue(key) {
+    // If popover is open, ALWAYS return local value
+    if (popoverOpen.value === key) return sliderValue.value;
+    
+    if (!liveStatus.value) return 0;
+    return liveStatus.value[key] || 0;
+}
+
+function togglePopover(key, event) {
+    if (popoverOpen.value === key) {
+        closePopover();
+    } else {
+        // Sync local value from store BEFORE opening
+        sliderValue.value = liveStatus.value[key] || 0;
+        popoverOpen.value = key;
+    }
+    event.stopPropagation();
+}
+
+function closePopover() {
+    popoverOpen.value = null;
+}
+
+function onSliderInput(event) {
+    // Purely local update. No API calls here.
+    sliderValue.value = parseInt(event.target.value);
+}
+
+function commitPwmValue(id) {
+    // Send the value to the backend ONLY when OK is clicked
+    store.setSwitchValue(id, sliderValue.value);
+    closePopover();
+}
+
+function handleClickOutside(event) {
+    if (popoverOpen.value) {
+        const popovers = document.querySelectorAll('.pwm-popover');
+        let clickedInside = false;
+        popovers.forEach(p => {
+            if (p.contains(event.target)) clickedInside = true;
+        });
+        if (!clickedInside) {
+            closePopover();
+        } 
+    }
+}
 </script>
 
 <template>
@@ -125,10 +182,41 @@ watch(visibleSwitches, () => nextTick(checkTruncation), { deep: true });
                class="switch-control glass-panel" 
                :data-fullname="isTruncated(index) ? s.name : ''">
               <span class="name">{{ s.name }}</span>
-              <label class="switch-toggle">
-                  <input type="checkbox" :checked="s.isOn" @change="toggleSwitch(s.id, s.isOn)">
-                  <span class="slider"></span>
-              </label>
+
+              <!-- Wrapper to ensure stable layout on right side -->
+              <div class="control-wrapper">
+                  <!-- Manual PWM Control (Badge + Popover) -->
+                  <div v-if="isManualPwm(s.key)" class="pwm-manual-container">
+                      <div class="pwm-badge" 
+                           :class="{ 'is-off': !s.isOn }"
+                           @click="togglePopover(s.key, $event)" 
+                           title="Adjust Manual Power">
+                          {{ s.isOn ? getPwmValue(s.key) + '%' : 'OFF' }}
+                      </div>
+                      
+                      <div v-if="popoverOpen === s.key" 
+                           class="pwm-popover" 
+                           @click.stop>
+                          <div class="popover-header">
+                              <span>Power</span>
+                              <span class="value">{{ sliderValue }}%</span>
+                          </div>
+                          <div class="slider-wrapper">
+                              <input type="range" min="0" max="100" step="1"
+                                     :value="sliderValue" 
+                                     @input="onSliderInput"
+                                     class="pwm-slider">
+                              <button class="ok-btn" @click="commitPwmValue(s.id)">OK</button>
+                          </div>
+                      </div>
+                  </div>
+
+                  <!-- Standard Toggle Switch -->
+                  <label v-else class="switch-toggle">
+                      <input type="checkbox" :checked="s.isOn" @change="toggleSwitch(s.id, s.isOn)">
+                      <span class="slider"></span>
+                  </label>
+              </div>
           </div>
       </div>
   </div>
@@ -136,9 +224,28 @@ watch(visibleSwitches, () => nextTick(checkTruncation), { deep: true });
 
 <style scoped>
 /* Allow tooltip to overflow the card */
+/* .switch-control definition moved below to pair with control-wrapper */
+
+
+/* Stable wrapper for the right-side control */
+.control-wrapper {
+    /* Fixed geometry strategy: Always reserve space */
+    width: 6.0rem; 
+    flex-shrink: 0; /* Never shrink */
+    display: flex;
+    justify-content: flex-end; /* Align content to right */
+    align-items: center;
+}
+
+/* Ensure text doesn't overlap */
 .switch-control {
     overflow: visible;
     position: relative;
+    display: flex; /* Enforce flex layout */
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem; /* Minimum gap */
+    /* padding-right: 0; REMOVED to restore natural padding */
 }
 
 /* Text truncation for long switch names */
@@ -173,9 +280,150 @@ watch(visibleSwitches, () => nextTick(checkTruncation), { deep: true });
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
+
 .switch-control[data-fullname]:not([data-fullname=""]):hover::before {
     opacity: 1;
     visibility: visible;
     transition-delay: 0.7s;
+}
+
+/* PWM Manual Control Styles */
+.pwm-manual-container {
+    position: relative;
+    /* margin-right: 0.5rem; handled by layout usually, flex auto? */
+    display: flex;
+    align-items: center;
+    /* margin-left: auto; REMOVED - Handled by .control-wrapper */
+}
+
+.pwm-badge {
+    background: rgba(0, 255, 255, 0.1);
+    color: #0ff;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 1.0rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+    min-width: 4.5rem;
+    text-align: center;
+}
+
+.pwm-badge.is-off {
+    background: rgba(255, 255, 255, 0.05);
+    color: #888;
+    border-color: rgba(255, 255, 255, 0.1);
+    text-shadow: none;
+}
+
+.pwm-badge:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+.pwm-badge.is-off:hover {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    color: #ccc;
+}
+
+.pwm-popover {
+    position: absolute;
+    bottom: 120%; /* Above the badge */
+    right: 0; /* Align right edge */
+    width: 280px; /* Slightly wider for Button */
+    background: rgba(15, 12, 41, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 1.25rem;
+    z-index: 2000; /* Above regular tooltips */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    animation: fadeIn 0.15s ease-out;
+    transform-origin: bottom right;
+}
+
+.popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+    color: #a0a0a0;
+}
+
+/* OK Button Styles */
+.ok-btn {
+    background: rgba(0, 255, 255, 0.2);
+    color: #0ff;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+}
+
+.ok-btn:hover {
+    background: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.ok-btn:active {
+    transform: translateY(0);
+}
+
+.slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding-top: 0.5rem;
+}
+
+.popover-header .value {
+    color: #0ff;
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+}
+
+/* Slider Styling */
+.pwm-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+    flex: 1; /* Take remaining space */
+}
+
+.pwm-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #0ff;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+    transition: transform 0.1s;
+}
+
+.pwm-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
