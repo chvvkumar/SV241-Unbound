@@ -562,12 +562,19 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 
 		// Use Manual PWM Command Logic if:
 		// 1. Explicit Value provided (User wants to set a specific power).
+		//    BUT: Value=0 should NOT be treated as explicit - it means "turn off"!
 		// 2. State Toggle AND we are NOT in Auto Mode.
-		//    - If isManual=true: Restore saved value.
-		//    - If is(Auto/Manual)=unknown (Cache Miss): Default to Restore logic (Manual) to avoid "0%" glitch.
-		//    - If isAuto=true: Do NOT use this block, fall through to standard "true" command to resume Auto.
+		// note: Turning OFF (!state) in Auto Mode should fall through to standard "false" command.
 		forceManualValue, _ := GetFormValueIgnoreCase(r, "Value")
-		useManualLogic := (heaterIdx >= 0) && (forceManualValue != "" || !isAuto)
+		hasExplicitValue := false
+		if forceManualValue != "" {
+			// Parse the value to check if it's > 0 (actual power setpoint)
+			valFloat, err := strconv.ParseFloat(strings.Replace(forceManualValue, ",", ".", -1), 64)
+			if err == nil && valFloat > 0 {
+				hasExplicitValue = true
+			}
+		}
+		useManualLogic := (heaterIdx >= 0) && (hasExplicitValue || !isAuto)
 
 		if useManualLogic {
 			if valueStr, ok := GetFormValueIgnoreCase(r, "Value"); ok {
@@ -575,15 +582,15 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 				value, _ := strconv.ParseFloat(valueStr, 64)
 				command = fmt.Sprintf(`{"set":{"%s":%.0f}}`, shortKey, value)
 			} else {
-				// Restore-on-Toggle Logic:
+				// Restore-on-Toggle Logic for Manual Mode:
 				if state {
-					// Turning ON (state=true) in Manual (or Unknown) Mode
-					// Use Smart Restore Helper
+					// Turning ON (state=true) in Manual Mode
+					// Use Smart Restore to recover last saved power level
 					command = restorePowerState(shortKey, heaterIdx, state)
 				} else {
-					// Turning OFF
-					// CRITICAL: We must send 0 to ensure it turns off.
-					command = fmt.Sprintf(`{"set":{"%s":0}}`, shortKey)
+					// Turning OFF in Manual Mode
+					// Send "false" to disable.
+					command = fmt.Sprintf(`{"set":{"%s":false}}`, shortKey)
 				}
 			}
 			sendManualPWMCommand = true
@@ -633,12 +640,13 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 				command = `{"set":{"all":0}}`
 			}
 		} else {
+			// Standard Logic (Auto Modes or Generic Switches)
 			// Use "true"/"false" for bool to avoid ambiguity with "1"=1V in firmware
 			command = fmt.Sprintf(`{"set":{"%s":%t}}`, shortKey, state)
 		}
 	}
 
-	responseJSON, err := serial.SendCommand(command, true, 0)
+	_, err = serial.SendCommand(command, true, 0)
 	if err != nil {
 		ErrorResponse(w, r, http.StatusInternalServerError, http.StatusInternalServerError, fmt.Sprintf("Failed to send command: %v", err))
 		return
@@ -651,8 +659,14 @@ func (a *API) HandleSwitchSetSwitchValue(w http.ResponseWriter, r *http.Request)
 		serial.VoltageMutex.Unlock()
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, responseJSON)
+	// Parse response which can contain mixed types ("status" object and "dm" array)
+	// This ensures we capture any immediate status updates from the command,
+	// particularly for the "Turbo" update mechanism in serial.go which might run before this.
+	// But we must NOT prevent standard polling from working.
+
+	// We don't send the raw firmware response to the client.
+	// Alpaca expects a standard envelope.
+	EmptyResponse(w, r)
 
 	// Handle auto-enable/disable logic in a goroutine
 	go handleHeaterInteractions(id, state)
