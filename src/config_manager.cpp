@@ -16,7 +16,7 @@ void populateDefaultConfig() {
     config.update_intervals_ms = {1000, 1000, 1000};
     config.power_startup_states = {false, false, false, false, false, false, false, false};
     config.averaging_counts = {5, 5, 5, 5, 5};
-    config.adj_conv_preset_v = 0.5f;
+    config.adj_conv_preset_v = 1.0f;
 
     // Default settings for SHT40 auto-dry feature
     config.sht40_auto_dry = {true, 99.0f, 300000}; // enabled, 99.0% threshold, 5 minutes duration
