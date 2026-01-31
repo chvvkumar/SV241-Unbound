@@ -69,7 +69,6 @@ function GetUninstallInfo(var sInstallPath: String): String;
 var
   sUnInstPathKey: String;
   sUnInstString: String;
-  sInstallLoc: String;
 begin
   Result := '';
   sInstallPath := '';
