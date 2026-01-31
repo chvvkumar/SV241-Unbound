@@ -119,8 +119,16 @@ function onStateChange(key, val) {
 }
 
 function onVoltageChange(key, val) {
+    const parsedValue = parseFloat(val);
+    
+    // Validate minimum voltage for adj_conv
+    if (key === 'adj_conv' && !isNaN(parsedValue) && parsedValue < 1.0) {
+        modal.error('Preset voltage must be at least 1V.', 'Invalid Voltage');
+        return;
+    }
+    
     const edit = getEdit(key);
-    edit.rawValue = parseFloat(val);
+    edit.rawValue = parsedValue;
 }
 
 
@@ -139,6 +147,14 @@ async function save() {
     for (const key of Object.keys(edits.value)) {
         const edit = edits.value[key];
         const shortKey = switchMapping[key] || key;
+        
+        // Validate adj_conv voltage before saving
+        if (key === 'adj_conv' && edit.rawValue !== undefined) {
+            if (edit.rawValue < 1.0) {
+                modal.error('Preset voltage must be at least 1V.', 'Invalid Configuration');
+                return;
+            }
+        }
         
         if (edit.startupState !== undefined) {
              newPs[shortKey] = edit.startupState;
