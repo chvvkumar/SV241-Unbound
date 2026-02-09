@@ -290,16 +290,16 @@ const chartOptions = {
             type: 'linear',
             position: 'left',
             beginAtZero: false,
-            grid: { color: 'rgba(255,255,255,0.1)' },
-            ticks: { color: '#00ced1' }, // Cyan for environmental data
+            grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--surface-border') || 'rgba(255,255,255,0.1)' },
+            ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--primary-color') || '#00ced1' },
             title: { display: false }
         },
         y_right: {
             type: 'linear',
             position: 'right',
             beginAtZero: false,
-            grid: { drawOnChartArea: false }, // Don't draw grid lines for right axis
-            ticks: { color: '#ffd700' }, // Gold for electrical data
+            grid: { drawOnChartArea: false },
+            ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#ffd700' },
             title: { display: false }
         },
         y_bool: {
@@ -307,15 +307,15 @@ const chartOptions = {
             display: false,
             position: 'right',
             min: 0,
-            max: 1 // 1 is 100% height
+            max: 1
         },
         x: {
-            grid: { color: 'rgba(255,255,255,0.1)' },
-            ticks: { maxTicksLimit: 20 }
+            grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--surface-border') || 'rgba(255,255,255,0.1)' },
+            ticks: { maxTicksLimit: 20, color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#b0b0b0' }
         }
     },
     plugins: {
-        legend: { labels: { color: '#ccc' } },
+        legend: { labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#ccc' } },
         zoom: {
             zoom: {
                 wheel: { enabled: true },
@@ -403,7 +403,7 @@ const chartOptions = {
     font-size: 1.1rem;
 }
 .close-btn {
-    background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;
+    background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer;
 }
 .explorer-body {
     flex: 1;
@@ -413,8 +413,8 @@ const chartOptions = {
 .explorer-sidebar {
     width: 300px;
     padding: 1.5rem;
-    background: rgba(0,0,0,0.2);
-    border-right: 1px solid rgba(255,255,255,0.1);
+    background: var(--surface-color);
+    border-right: 1px solid var(--surface-border);
     display: flex; flex-direction: column;
     gap: 2rem;
     overflow-y: auto;
@@ -438,15 +438,22 @@ const chartOptions = {
     flex: 1;
     padding: 0.25rem;
     font-size: 0.8rem;
-    background: rgba(255,255,255,0.1);
-    border: none; color: #fff; cursor: pointer;
+    background: var(--surface-color);
+    border: 1px solid var(--surface-border);
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
 }
-.presets button:hover { background: rgba(255,255,255,0.2); }
+.presets button:hover { background: var(--surface-hover); }
 .apply-btn {
     margin-top: 0.5rem;
     padding: 0.5rem;
-    background: #007bff; border: none; color: white; cursor: pointer;
+    background: var(--primary-color);
+    border: none;
+    color: var(--bg-color-start);
+    cursor: pointer;
     font-weight: bold;
+    border-radius: var(--radius-sm);
 }
 .sensor-list {
     display: flex;
@@ -464,10 +471,12 @@ const chartOptions = {
 .download-btn {
     margin-top: auto;
     padding: 0.75rem;
-    background: #28a745;
-    border: none; color: #fff;
+    background: var(--success-color);
+    border: none;
+    color: var(--bg-color-start);
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
 }
 .chart-toolbar {
     display: flex;
@@ -476,17 +485,21 @@ const chartOptions = {
 }
 .reset-btn {
     padding: 0.4rem 0.8rem;
-    background: #555;
-    border: 1px solid #777;
-    color: #fff;
+    background: var(--surface-color);
+    border: 1px solid var(--surface-border);
+    color: var(--text-primary);
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-size: 0.85rem;
 }
 .reset-btn:hover {
-    background: #666;
+    background: var(--surface-hover);
 }
 input[type="datetime-local"] {
-    background: #333; border: 1px solid #555; color: #fff; padding: 0.25rem;
+    background: var(--surface-color);
+    border: 1px solid var(--surface-border);
+    color: var(--text-primary);
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
 }
 </style>

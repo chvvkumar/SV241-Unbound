@@ -105,7 +105,7 @@ const chartOptions = {
     },
     plugins: {
         legend: {
-            labels: { color: '#ccc' }
+            labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#ccc' }
         }
     }
 }

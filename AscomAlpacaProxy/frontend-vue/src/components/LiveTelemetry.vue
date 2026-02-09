@@ -3,7 +3,7 @@ import { useDeviceStore } from '../stores/device'
 import { storeToRefs } from 'pinia'
 
 const store = useDeviceStore()
-const { liveStatus, proxyConfig } = storeToRefs(store)
+const { liveStatus, proxyConfig, isConnected } = storeToRefs(store)
 
 const emit = defineEmits(['open-explorer'])
 </script>
@@ -27,7 +27,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Voltage</span>
         <span class="value" id="status-v">
-            {{ (liveStatus.v || 0).toFixed(2) }} <small>V</small>
+            {{ isConnected ? (liveStatus.v || 0).toFixed(2) : '--' }} <small>V</small>
         </span>
         </div>
 
@@ -35,7 +35,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Current</span>
         <span class="value" id="status-i">
-            {{ (liveStatus.i && liveStatus.i !== 0 ? liveStatus.i / 1000 : 0).toFixed(2) }} <small>A</small>
+            {{ isConnected ? (liveStatus.i && liveStatus.i !== 0 ? liveStatus.i / 1000 : 0).toFixed(2) : '--' }} <small>A</small>
         </span>
         </div>
 
@@ -43,7 +43,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Power</span>
         <span class="value" id="status-p">
-            {{ (liveStatus.p || 0).toFixed(2) }} <small>W</small>
+            {{ isConnected ? (liveStatus.p || 0).toFixed(2) : '--' }} <small>W</small>
         </span>
         </div>
 
@@ -51,7 +51,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Amb Temp</span>
         <span class="value" id="status-t_amb">
-            {{ (liveStatus.t_amb || 0).toFixed(1) }} <small>°C</small>
+            {{ isConnected ? (liveStatus.t_amb || 0).toFixed(1) : '--' }} <small>°C</small>
         </span>
         </div>
 
@@ -59,7 +59,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Humidity</span>
         <span class="value" id="status-h_amb">
-            {{ (liveStatus.h_amb || 0).toFixed(1) }} <small>%</small>
+            {{ isConnected ? (liveStatus.h_amb || 0).toFixed(1) : '--' }} <small>%</small>
         </span>
         </div>
 
@@ -67,7 +67,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Dew Point</span>
         <span class="value" id="status-d">
-            {{ (liveStatus.d || 0).toFixed(1) }} <small>°C</small>
+            {{ isConnected ? (liveStatus.d || 0).toFixed(1) : '--' }} <small>°C</small>
         </span>
         </div>
 
@@ -75,7 +75,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">Lens Temp</span>
         <span class="value" id="status-t_lens">
-            {{ (liveStatus.t_lens || 0).toFixed(1) }} <small>°C</small>
+            {{ isConnected ? (liveStatus.t_lens || 0).toFixed(1) : '--' }} <small>°C</small>
         </span>
         </div>
 
@@ -83,7 +83,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">PWM 1</span>
         <span class="value" id="status-pwm1">
-            {{ Math.round(liveStatus.pwm1 || 0) }} <small>%</small>
+            {{ isConnected ? Math.round(liveStatus.pwm1 || 0) : '--' }} <small>%</small>
         </span>
         </div>
 
@@ -91,7 +91,7 @@ const emit = defineEmits(['open-explorer'])
         <div class="telemetry-item">
         <span class="label">PWM 2</span>
         <span class="value" id="status-pwm2">
-            {{ Math.round(liveStatus.pwm2 || 0) }} <small>%</small>
+            {{ isConnected ? Math.round(liveStatus.pwm2 || 0) : '--' }} <small>%</small>
         </span>
         </div>
     </div>
