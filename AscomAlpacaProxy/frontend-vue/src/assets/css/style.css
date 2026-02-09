@@ -2,7 +2,7 @@
     color-scheme: dark;
     /* Forces native controls (scrollbars, selects) to dark mode */
 
-    /* Color Palette - Deep Space Dark */
+    /* Color Palette - Deep Space Dark (Default Theme) */
     --bg-color-start: #0f0c29;
     --bg-color-mid: #302b63;
     --bg-color-end: #24243e;
@@ -30,6 +30,68 @@
     --shadow-soft: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
+/* Default Theme (Explicit) - Uses root variables */
+[data-theme="default"] {
+    /* Inherits all root variables */
+    color-scheme: dark;
+}
+
+/* Red Theme - Night Vision Friendly */
+[data-theme="red"] {
+    color-scheme: dark;
+
+    /* Color Palette - Red Theme */
+    /* Pure black with subtle red tints for night vision preservation */
+    --bg-color-start: #000000;
+    --bg-color-mid: #0a0000;
+    --bg-color-end: #000000;
+
+    --surface-color: rgba(139, 0, 0, 0.08);
+    --surface-border: rgba(139, 0, 0, 0.2);
+    --surface-hover: rgba(139, 0, 0, 0.15);
+
+    /* Subdued red tones for buttons */
+    --primary-color: #a62828;
+    --primary-glow: rgba(166, 40, 40, 0.3);
+
+    --accent-color: #8b4545;
+    --text-primary: #dd9999;
+    --text-secondary: #bb6666;
+
+    /* Adjusted status colors for red theme */
+    --success-color: #cc5555;
+    --warning-color: #d47744;
+    --danger-color: #991010;
+}
+
+/* Material Dark Theme */
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Color Palette - Material Design Dark Theme */
+    /* Based on Material Design 3 dark color scheme - Extra Dark */
+    --bg-color-start: #0a0a0a;
+    --bg-color-mid: #0f0f0f;
+    --bg-color-end: #0a0a0a;
+
+    --surface-color: rgba(255, 255, 255, 0.03);
+    --surface-border: rgba(255, 255, 255, 0.08);
+    --surface-hover: rgba(255, 255, 255, 0.05);
+
+    /* Subdued colors for dark mode */
+    --primary-color: #3d7ab8;
+    --primary-glow: rgba(61, 122, 184, 0.25);
+
+    --accent-color: #3d8a7a;
+    --text-primary: #e1e1e1;
+    --text-secondary: #a0a0a0;
+
+    /* Material Design status colors */
+    --success-color: #3d8a7a;
+    --warning-color: #ffb74d;
+    --danger-color: #cf6679;
+}
+
 body {
     font-family: var(--font-main);
     background: linear-gradient(135deg, var(--bg-color-start), var(--bg-color-mid), var(--bg-color-end));
@@ -39,6 +101,17 @@ body {
     margin: 0;
     min-height: 100vh;
     overflow-x: hidden;
+    transition: background 0.5s ease, color 0.3s ease;
+}
+
+/* Smooth theme transitions for all themed elements */
+* {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Prevent transition on page load */
+.no-transition * {
+    transition: none !important;
 }
 
 /* --- Layout Containers --- */
@@ -195,6 +268,31 @@ body {
         opacity: 1;
         box-shadow: 0 0 15px var(--warning-color);
     }
+}
+
+/* --- Status Badges --- */
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.5rem 0.75rem;
+    border-radius: 50px;
+    border: 1px solid var(--surface-border);
+}
+
+.status-badge .label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.status-badge .value {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
 }
 
 /* --- Cards & Content --- */
@@ -486,6 +584,43 @@ select option {
     color: #fff;
 }
 
+/* Material Dark Theme Input Styles */
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] select {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] select option {
+    background-color: #0d0d0d;
+    color: #e1e1e1;
+}
+
+[data-theme="dark"] select option:disabled {
+    color: #666;
+    background-color: #0a0a0a;
+    font-style: italic;
+}
+
+/* Red Theme Input Styles */
+[data-theme="red"] input[type="text"],
+[data-theme="red"] input[type="number"],
+[data-theme="red"] select {
+    background: rgba(139, 0, 0, 0.1);
+    color: var(--text-primary);
+}
+
+[data-theme="red"] select option {
+    background-color: #000000;
+    color: #ffcccc;
+}
+
+[data-theme="red"] select option:disabled {
+    color: #8b4545;
+    background-color: #000000;
+}
+
 select option:disabled {
     color: #666;
     background-color: #0f0c29;
@@ -649,6 +784,42 @@ button {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+/* Red Theme Scrollbar */
+[data-theme="red"] ::-webkit-scrollbar-track {
+    background: rgba(139, 0, 0, 0.1);
+}
+
+[data-theme="red"] ::-webkit-scrollbar-thumb {
+    background: rgba(204, 51, 51, 0.2);
+}
+
+[data-theme="red"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(204, 51, 51, 0.3);
+}
+
+/* Red Theme Log Colors */
+[data-theme="red"] .log-line-error {
+    color: #ff4444;
+}
+
+[data-theme="red"] .log-line-warn {
+    color: #ff9966;
+}
+
+[data-theme="red"] .log-line-debug {
+    color: #cc6666;
+}
+
+/* Red Theme Toggle Switches */
+[data-theme="red"] .slider:before {
+    background-color: #8b4545;
+}
+
+[data-theme="red"] input:checked+.slider:before {
+    background-color: #dd9999;
+    box-shadow: 0 0 10px rgba(221, 153, 153, 0.5);
 }
 
 /* --- Collapsible Sections --- */

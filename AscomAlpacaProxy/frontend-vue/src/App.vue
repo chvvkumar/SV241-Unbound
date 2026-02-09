@@ -10,12 +10,15 @@ import Configuration from './components/Configuration.vue'
 import LiveLog from './components/LiveLog.vue'
 import AppModal from './components/AppModal.vue'
 import { useDeviceStore } from './stores/device'
+import { useThemeStore } from './stores/theme'
 
 const store = useDeviceStore()
+const themeStore = useThemeStore()
 const showExplorer = ref(false)
 
 onMounted(() => {
     store.startPolling()
+    // Theme is automatically applied via the theme store initialization
 })
 </script>
 
