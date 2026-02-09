@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 
 const store = useDeviceStore()
-const { activeSwitches, switchNames, powerStatus, config, proxyConfig, liveStatus } = storeToRefs(store)
+const { activeSwitches, switchNames, powerStatus, config, proxyConfig, liveStatus, isConnected } = storeToRefs(store)
 
 const masterPowerState = computed({
     get: () => {
@@ -13,6 +13,7 @@ const masterPowerState = computed({
         return visibleSwitches.value.every(s => isSwitchOn(s.key));
     },
     set: (val) => {
+        if (!isConnected.value) return;
         store.setAllPower(val);
     }
 })
@@ -67,6 +68,7 @@ function getDefaultName(key) {
 }
 
 function toggleSwitch(id, currentState) {
+    if (!isConnected.value) return;
     store.setSwitch(id, !currentState);
 }
 
@@ -154,6 +156,7 @@ function getPwmValue(key) {
 }
 
 function togglePopover(key, event) {
+    if (!isConnected.value) return;
     if (popoverOpen.value === key) {
         closePopover();
     } else {
@@ -206,8 +209,8 @@ function handleClickOutside(event) {
       <!-- Master Switch - only show if enableMasterPower is true -->
       <div v-if="proxyConfig.enableMasterPower !== false" id="master-switch-container" class="switch-row master-row">
           <span class="name" id="master-power-label">{{ proxyConfig.switchNames?.master_power || 'Master Power' }}</span>
-          <label class="switch-toggle neon-toggle">
-              <input type="checkbox" v-model="masterPowerState">
+          <label class="switch-toggle neon-toggle" :class="{ 'disabled': !isConnected }">
+              <input type="checkbox" v-model="masterPowerState" :disabled="!isConnected">
               <span class="slider"></span>
           </label>
       </div>
@@ -223,7 +226,7 @@ function handleClickOutside(event) {
                   <!-- Manual/Variable Control (Badge + Popover) -->
                   <div v-if="isVariableControl(s)" class="pwm-manual-container">
                       <div class="pwm-badge" 
-                           :class="{ 'is-off': !s.isOn }"
+                           :class="{ 'is-off': !s.isOn, 'disabled': !isConnected }"
                            @click="togglePopover(s.key, $event)" 
                            title="Adjust Value">
                           {{ s.isOn ? getDisplayValue(s.key) : 'OFF' }}
@@ -250,8 +253,8 @@ function handleClickOutside(event) {
                   </div>
 
                   <!-- Standard Toggle Switch -->
-                  <label v-else class="switch-toggle">
-                      <input type="checkbox" :checked="s.isOn" @change="toggleSwitch(s.id, s.isOn)">
+                  <label v-else class="switch-toggle" :class="{ 'disabled': !isConnected }">
+                      <input type="checkbox" :checked="s.isOn" @change="toggleSwitch(s.id, s.isOn)" :disabled="!isConnected">
                       <span class="slider"></span>
                   </label>
               </div>
@@ -458,6 +461,17 @@ function handleClickOutside(event) {
 
 .pwm-slider::-webkit-slider-thumb:hover {
     transform: scale(1.1);
+}
+
+/* Disabled State Styling */
+.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+.switch-toggle.disabled .slider {
+    background-color: #555;
+    cursor: not-allowed;
 }
 
 @keyframes fadeIn {
